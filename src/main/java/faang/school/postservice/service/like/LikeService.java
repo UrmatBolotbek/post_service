@@ -127,6 +127,7 @@ public class LikeService {
         likes.removeIf(like -> like.getUserId().equals(userId));
     }
 
+
     public List<UserDto> getUsersByPostId(long postId) {
         List<Long> userIds = likeRepository.findByPostId(postId).stream()
                 .map(Like::getUserId)
@@ -138,7 +139,6 @@ public class LikeService {
 
         return fetchUsersInBatches(userIds);
     }
-
     public List<UserDto> getUsersByCommentId(long commentId) {
         if (!commentRepository.existsById(commentId)) {
             throw new EntityNotFoundException("Comment with id " + commentId + " does not exist.");
@@ -154,7 +154,6 @@ public class LikeService {
 
         return fetchUsersInBatches(userIds);
     }
-
 
     private List<List<Long>> splitIntoBatches(List<Long> userIds, int batchSize) {
         List<List<Long>> batches = new ArrayList<>();
