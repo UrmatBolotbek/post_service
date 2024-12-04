@@ -128,17 +128,11 @@ public class LikeService {
     }
 
     public List<UserDto> getUsersByPostId(long postId) {
-        List<Long> userIds = Optional.ofNullable(likeRepository.findByPostId(postId))
-                .orElse(Collections.emptyList())
-                .stream()
+        List<Long> userIds = likeRepository.findByPostId(postId).stream()
                 .map(Like::getUserId)
                 .toList();
 
-        if (userIds.isEmpty()) {
-            return List.of();
-        }
-
-        if (!validator.validatePostHasLikes(postId, userIds)) {
+        if (userIds.isEmpty() || !validator.validatePostHasLikes(postId, userIds)) {
             return List.of();
         }
 
@@ -146,27 +140,21 @@ public class LikeService {
     }
 
     public List<UserDto> getUsersByCommentId(long commentId) {
-        // Проверка существования комментария
         if (!commentRepository.existsById(commentId)) {
             throw new EntityNotFoundException("Comment with id " + commentId + " does not exist.");
         }
 
-        List<Long> userIds = Optional.ofNullable(likeRepository.findByCommentId(commentId))
-                .orElse(Collections.emptyList())
-                .stream()
+        List<Long> userIds = likeRepository.findByCommentId(commentId).stream()
                 .map(Like::getUserId)
                 .toList();
 
-        if (!validator.validateCommentHasLikes(commentId, userIds)) {
+        if (userIds.isEmpty() || !validator.validateCommentHasLikes(commentId, userIds)) {
             return List.of();
         }
 
-        userIds.forEach(validator::validateUserId);
-
-        List<UserDto> fetchedUsers = fetchUsersInBatches(userIds);
-
-        return fetchedUsers;
+        return fetchUsersInBatches(userIds);
     }
+
 
     private List<List<Long>> splitIntoBatches(List<Long> userIds, int batchSize) {
         List<List<Long>> batches = new ArrayList<>();
