@@ -12,6 +12,8 @@ import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.LikeRepository;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.validator.like.LikeValidator;
+import faang.school.postservice.validator.like.comment.CommentValidator;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +30,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -53,6 +56,8 @@ public class LikeServiceTest {
     private LikeValidator validator;
     @Mock
     private UserServiceClient userServiceClient;
+    @Mock
+    private CommentValidator commentValidator;
 
 
     private static final int BATCH_SIZE = 100;
@@ -163,6 +168,7 @@ public class LikeServiceTest {
         assertThrows(DataValidationException.class,
                 () -> likeService.deleteLikeFromComment(acceptanceLikeDto, 10L));
     }
+
     @Test
     void testGetUsersByPostId_Success() {
         Post post = new Post();
@@ -179,7 +185,6 @@ public class LikeServiceTest {
         );
 
         when(likeRepository.findByPostId(5L)).thenReturn(likes);
-        when(validator.validatePostHasLikes(5L, userIds)).thenReturn(true);
         when(userServiceClient.getUsersByIds(anyList())).thenReturn(userDtos);
 
         List<UserDto> result = likeService.getUsersByPostId(5L);
@@ -203,7 +208,6 @@ public class LikeServiceTest {
         );
         List<Long> userIds = List.of(1L, 2L);
         when(likeRepository.findByPostId(5L)).thenReturn(likes);
-        when(validator.validatePostHasLikes(5L, userIds)).thenReturn(true);
         when(userServiceClient.getUsersByIds(anyList())).thenThrow(new RuntimeException("Service unavailable"));
 
         List<UserDto> result = likeService.getUsersByPostId(5L);
@@ -212,4 +216,49 @@ public class LikeServiceTest {
         verify(likeRepository).findByPostId(5L);
         verify(userServiceClient).getUsersByIds(userIds);
     }
+
+    @Test
+    void testGetUsersByCommentId_Success() {
+        long commentId = 10L;
+
+        List<Like> likes = List.of(
+                Like.builder().userId(1L).comment(comment).build(),
+                Like.builder().userId(2L).comment(comment).build()
+        );
+        List<Long> userIds = List.of(1L, 2L);
+        List<UserDto> userDtos = List.of(
+                new UserDto(1L, "User1", "user1@example.com", "Address1", 25),
+                new UserDto(2L, "User2", "user2@example.com", "Address2", 30)
+        );
+
+        when(likeRepository.findByCommentId(commentId)).thenReturn(likes);
+        when(userServiceClient.getUsersByIds(userIds)).thenReturn(userDtos);
+
+        List<UserDto> result = likeService.getUsersByCommentId(commentId);
+
+        assertEquals(2, result.size());
+        assertTrue(result.contains(new UserDto(1L, "User1", "user1@example.com", "Address1", 25)));
+        assertTrue(result.contains(new UserDto(2L, "User2", "user2@example.com", "Address2", 30)));
+
+        verify(commentValidator).validateCommentExists(commentId);
+        verify(likeRepository).findByCommentId(commentId);
+        verify(userServiceClient).getUsersByIds(userIds);
+    }
+
+    @Test
+    void testGetUsersByCommentId_CommentNotFound() {
+        long commentId = 10L;
+
+        doThrow(new EntityNotFoundException("Comment with id " + commentId + " does not exist."))
+                .when(commentValidator).validateCommentExists(commentId);
+
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> likeService.getUsersByCommentId(commentId));
+
+        assertEquals("Comment with id 10 does not exist.", exception.getMessage());
+        verify(commentValidator).validateCommentExists(commentId);
+        verifyNoInteractions(likeRepository);
+        verifyNoInteractions(userServiceClient);
+    }
 }
+

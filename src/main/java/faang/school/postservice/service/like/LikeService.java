@@ -13,6 +13,7 @@ import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.LikeRepository;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.validator.like.LikeValidator;
+import faang.school.postservice.validator.like.comment.CommentValidator;
 import feign.FeignException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class LikeService {
     private final LikeMapper likeMapper;
     private final LikeValidator validator;
     private final UserServiceClient userServiceClient;
+    private final CommentValidator commentValidator;
 
     private static final int BATCH_SIZE = 100;
 
@@ -133,22 +135,21 @@ public class LikeService {
                 .map(Like::getUserId)
                 .toList();
 
-        if (userIds.isEmpty() || !validator.validatePostHasLikes(postId, userIds)) {
+        if (userIds.isEmpty()) {
             return List.of();
         }
 
         return fetchUsersInBatches(userIds);
     }
+
     public List<UserDto> getUsersByCommentId(long commentId) {
-        if (!commentRepository.existsById(commentId)) {
-            throw new EntityNotFoundException("Comment with id " + commentId + " does not exist.");
-        }
+        commentValidator.validateCommentExists(commentId);
 
         List<Long> userIds = likeRepository.findByCommentId(commentId).stream()
                 .map(Like::getUserId)
                 .toList();
 
-        if (userIds.isEmpty() || !validator.validateCommentHasLikes(commentId, userIds)) {
+        if (userIds.isEmpty()) {
             return List.of();
         }
 
