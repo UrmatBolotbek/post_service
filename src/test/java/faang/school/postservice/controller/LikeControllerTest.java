@@ -1,4 +1,4 @@
-package faang.school.postservice.controllet;
+package faang.school.postservice.controller;
 
 import faang.school.postservice.controller.like.LikeController;
 import faang.school.postservice.dto.user.UserDto;
