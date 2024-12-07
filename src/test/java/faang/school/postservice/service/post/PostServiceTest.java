@@ -8,8 +8,8 @@ import faang.school.postservice.mapper.post.PostMapper;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.service.post.filter.PostFilters;
-import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.service.resource.ResourceService;
+import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.post.PostValidator;
 import faang.school.postservice.validator.resource.ResourceValidator;
 import org.junit.jupiter.api.Test;
@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;

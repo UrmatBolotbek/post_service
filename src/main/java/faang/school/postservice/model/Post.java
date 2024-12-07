@@ -78,9 +78,4 @@ public class Post {
     @Column(name = "verified_date")
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime verifiedDate;
-
-    @Override
-    public String toString() {
-        return id.toString();
-    }
 }

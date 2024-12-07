@@ -30,8 +30,7 @@ public class ModerationScheduler {
             for (int i = 0; i < totalSizePosts; i += postBatchSize) {
                 int end = Math.min(i + postBatchSize, totalSizePosts);
                 List<Post> batch = allPostsWithVerifiedIsNull.subList(i, end);
-                log.info("Batch has been received////");
-                log.info("batch: " + batch);
+                log.info("Batch has been received");
                 postService.verifyPostsForModeration(batch);
             }
         }

@@ -17,11 +17,9 @@ import faang.school.postservice.service.s3.S3Service;
 import faang.school.postservice.validator.post.PostValidator;
 import faang.school.postservice.validator.resource.ResourceValidator;
 import jakarta.persistence.EntityNotFoundException;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,7 +29,6 @@ import java.util.List;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 @Slf4j
