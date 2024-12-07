@@ -6,6 +6,8 @@ import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
 import faang.school.postservice.dto.user.UserDto;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
+import faang.school.postservice.model.Post;
+import faang.school.postservice.publisher.CommentEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.validator.comment.CommentValidator;
 import org.junit.jupiter.api.Test;
@@ -20,7 +22,6 @@ import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -37,11 +38,15 @@ class CommentServiceTest {
     @Mock
     private CommentMapper commentMapper;
 
+    @Mock
+    private CommentEventPublisher commentEventPublisher;
+
     @InjectMocks
     private CommentService commentService;
 
     private static final Long VALID_COMMENT_ID = 1L;
     private static final Long VALID_POST_ID = 22L;
+    private static final Long VALID_POST_AUTHOR_ID = 33L;
     private static final String VALID_CONTENT = "some content";
     private static final String UPDATED_CONTENT = "some other content";
     private static final LocalDateTime CREATED_AT_FOR_OLDER_COMMENT =
@@ -53,28 +58,35 @@ class CommentServiceTest {
 
     @Test
     void createComment_shouldCreateCommentSuccessfully() {
+        Post post = new Post();
+        post.setId(VALID_POST_ID);
+        post.setAuthorId(VALID_POST_AUTHOR_ID);
+
         CommentRequestDto commentRequestDto = new CommentRequestDto();
-        commentRequestDto.setPostId(VALID_COMMENT_ID);
+        commentRequestDto.setPostId(VALID_POST_ID);
         commentRequestDto.setAuthorId(VALID_USER_DTO.getId());
         commentRequestDto.setContent("Test Content");
 
         Comment comment = new Comment();
         comment.setId(VALID_COMMENT_ID);
+        comment.setPost(post);
         comment.setLikes(new ArrayList<>());
 
-        CommentResponseDto expectedOutput = new CommentResponseDto();
-        expectedOutput.setId(VALID_COMMENT_ID);
+        CommentResponseDto expectedResponse = new CommentResponseDto();
+        expectedResponse.setId(VALID_COMMENT_ID);
 
         when(commentMapper.toEntity(commentRequestDto)).thenReturn(comment);
-        when(commentRepository.save(any(Comment.class))).thenReturn(comment);
-        when(commentMapper.toDto(comment)).thenReturn(expectedOutput);
+        when(commentRepository.save(comment)).thenReturn(comment);
+        when(commentMapper.toDto(comment)).thenReturn(expectedResponse);
 
-        CommentResponseDto actualOutput = commentService.createComment(commentRequestDto);
+        CommentResponseDto actualResponse = commentService.createComment(commentRequestDto);
 
         verify(commentValidator).validateAuthorExists(commentRequestDto.getAuthorId());
         verify(commentValidator).validatePostExists(commentRequestDto.getPostId());
         verify(commentRepository).save(comment);
-        assertEquals(expectedOutput, actualOutput);
+        verify(commentMapper).toEntity(commentRequestDto);
+        verify(commentMapper).toDto(comment);
+        assertEquals(expectedResponse, actualResponse);
     }
 
     @Test
