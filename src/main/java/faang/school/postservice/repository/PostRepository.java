@@ -1,6 +1,7 @@
 package faang.school.postservice.repository;
 
 import faang.school.postservice.model.Post;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
@@ -22,6 +23,10 @@ public interface PostRepository extends CrudRepository<Post, Long> {
 
     @Query("SELECT p FROM Post p WHERE p.published = false AND p.deleted = false AND p.scheduledAt <= CURRENT_TIMESTAMP")
     List<Post> findReadyToPublish();
+
+    default Post getPostById(Long id) {
+        return findById(id).orElseThrow(() -> new EntityNotFoundException("Post with id " + id + " not found"));
+    }
 
     List<Post> findByVerifiedIsNull();
 

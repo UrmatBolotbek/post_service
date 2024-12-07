@@ -8,13 +8,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class PostRequestDto {
+    @NotNull
     private Long authorId;
     @NotNull
+    private Long projectId;
     @NotBlank
     private String content;
-    private Long projectId;
 }

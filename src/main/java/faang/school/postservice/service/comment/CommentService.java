@@ -6,7 +6,7 @@ import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.repository.CommentRepository;
-import faang.school.postservice.validator.CommentValidator;
+import faang.school.postservice.validator.comment.CommentValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,9 +30,9 @@ public class CommentService {
         Comment comment = commentMapper.toEntity(commentRequestDto);
         comment.setLikes(new ArrayList<>());
 
-        commentRepository.save(comment);
+        Comment savedComment = commentRepository.save(comment);
         log.info("New comment with id: {} created", comment.getId());
-        return commentMapper.toDto(comment);
+        return commentMapper.toDto(savedComment);
     }
 
     public CommentResponseDto updateComment(CommentUpdateRequestDto commentUpdateRequestDto) {
