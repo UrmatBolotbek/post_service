@@ -3,15 +3,18 @@ package faang.school.postservice.service.comment;
 import faang.school.postservice.dto.comment.CommentRequestDto;
 import faang.school.postservice.dto.comment.CommentResponseDto;
 import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
+import faang.school.postservice.dto.events_dto.CommentEventDto;
 import faang.school.postservice.dto.user.UserDto;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.publisher.CommentEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
+import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.validator.comment.CommentValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,6 +25,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -37,6 +41,9 @@ class CommentServiceTest {
 
     @Mock
     private CommentMapper commentMapper;
+
+    @Mock
+    private PostRepository postRepository;
 
     @Mock
     private CommentEventPublisher commentEventPublisher;
@@ -74,10 +81,14 @@ class CommentServiceTest {
 
         CommentResponseDto expectedResponse = new CommentResponseDto();
         expectedResponse.setId(VALID_COMMENT_ID);
+        expectedResponse.setAuthorId(VALID_USER_DTO.getId());
+        expectedResponse.setPostId(VALID_POST_ID);
+        expectedResponse.setContent("Test Content");
 
         when(commentMapper.toEntity(commentRequestDto)).thenReturn(comment);
         when(commentRepository.save(comment)).thenReturn(comment);
         when(commentMapper.toDto(comment)).thenReturn(expectedResponse);
+        when(postRepository.getPostById(VALID_POST_ID)).thenReturn(post);
 
         CommentResponseDto actualResponse = commentService.createComment(commentRequestDto);
 
@@ -86,6 +97,19 @@ class CommentServiceTest {
         verify(commentRepository).save(comment);
         verify(commentMapper).toEntity(commentRequestDto);
         verify(commentMapper).toDto(comment);
+        verify(postRepository).getPostById(VALID_POST_ID);
+
+        ArgumentCaptor<CommentEventDto> eventCaptor = ArgumentCaptor.forClass(CommentEventDto.class);
+        verify(commentEventPublisher).publish(eventCaptor.capture());
+        CommentEventDto actualEvent = eventCaptor.getValue();
+
+        assertNotNull(actualEvent);
+        assertEquals(VALID_POST_AUTHOR_ID, actualEvent.getPostAuthorId());
+        assertEquals(VALID_USER_DTO.getId(), actualEvent.getCommentAuthorId());
+        assertEquals(VALID_POST_ID, actualEvent.getPostId());
+        assertEquals(VALID_COMMENT_ID, actualEvent.getCommentId());
+        assertEquals("Test Content", actualEvent.getCommentContent());
+
         assertEquals(expectedResponse, actualResponse);
     }
 
