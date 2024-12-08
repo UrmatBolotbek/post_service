@@ -9,6 +9,7 @@ import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.service.post.filter.PostFilters;
 import faang.school.postservice.service.resource.ResourceService;
+import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.post.PostValidator;
 import faang.school.postservice.validator.resource.ResourceValidator;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -25,6 +27,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -49,6 +52,8 @@ public class PostServiceTest {
     private ResourceService resourceService;
     @Mock
     private List<PostFilters> postFilters;
+    @Mock
+    private ModerationDictionary moderationDictionary;
     @InjectMocks
     private PostService postService;
 
@@ -236,4 +241,28 @@ public class PostServiceTest {
         verify(postMapper).toListPostDto(anyList());
         assertEquals(2, result.size());
     }
+
+    @Test
+    public void testVerifyPostsForModeration() {
+        Post post1 = new Post();
+        post1.setId(1L);
+        post1.setContent("Test1");
+        Post post2 = new Post();
+        post1.setId(2L);
+        post1.setContent("Test2");
+        List<Post> batch = Arrays.asList(post1, post2);
+
+        when(moderationDictionary.isVerified(post1.getContent())).thenReturn(true);
+        when(moderationDictionary.isVerified(post2.getContent())).thenReturn(false);
+
+        postService.verifyPostsForModeration(batch);
+
+        assertEquals(LocalDateTime.now().getMinute(), post1.getVerifiedDate().getMinute(), "Verified date should be set");
+        assertTrue(post1.getVerified(), "Post 1 should be verified");
+        assertEquals(LocalDateTime.now().getMinute(), post2.getVerifiedDate().getMinute(), "Verified date should be set");
+        assertFalse(post2.getVerified(), "Post 2 should not be verified");
+
+        verify(postRepository, times(2)).save(any(Post.class));
+    }
+
 }

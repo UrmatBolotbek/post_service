@@ -27,4 +27,7 @@ public interface PostRepository extends CrudRepository<Post, Long> {
     default Post getPostById(Long id) {
         return findById(id).orElseThrow(() -> new EntityNotFoundException("Post with id " + id + " not found"));
     }
+
+    List<Post> findByVerifiedIsNull();
+
 }

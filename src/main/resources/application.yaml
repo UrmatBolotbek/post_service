@@ -37,12 +37,18 @@ logging:
   level:
     root: info
 
+moderation-scheduler:
+  cron: 0 0 * * * *
+  post-batch-size: 20
+  dictionary-path: src\main\resources\dictionary\moderator.json
+
 services:
   s3:
     endpoint: http://127.0.0.1:9000
     accessKey: user
     secretKey: password
     bucketName: post-bucket
+
 user-service:
   host: localhost
   port: 8080

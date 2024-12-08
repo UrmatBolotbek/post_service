@@ -11,13 +11,15 @@ import faang.school.postservice.model.Post;
 import faang.school.postservice.model.Resource;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.service.post.filter.PostFilters;
+import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.service.resource.ResourceService;
 import faang.school.postservice.service.s3.S3Service;
 import faang.school.postservice.validator.post.PostValidator;
 import faang.school.postservice.validator.resource.ResourceValidator;
 import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -39,6 +41,7 @@ public class PostService {
     private final ResourceValidator resourceValidator;
     private final PostValidator postValidator;
     private final List<PostFilters> postFilters;
+    private final ModerationDictionary moderationDictionary;
 
     public PostResponseDto create(PostRequestDto requestDto, List<MultipartFile> images, List<MultipartFile> audio) {
         postValidator.validateCreate(requestDto);
@@ -166,5 +169,16 @@ public class PostService {
                 .forEach(filter -> filter.apply(posts, filterDto));
 
         return postMapper.toListPostDto(posts.toList());
+    }
+
+    @Async("moderationPool")
+    public void verifyPostsForModeration(List<Post> posts) {
+        posts.forEach(post -> {
+            post.setVerifiedDate(LocalDateTime.now());
+            boolean isVerified = moderationDictionary.isVerified(post.getContent());
+            post.setVerified(isVerified);
+            log.info("Post with id {} has been verified and has status {}", post.getId(), isVerified);
+            postRepository.save(post);
+        });
     }
 }
