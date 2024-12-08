@@ -39,15 +39,20 @@ public class CommentService {
         CommentResponseDto commentResponseDto = commentMapper.toDto(savedComment);
         log.info("New comment with id: {} created", comment.getId());
 
+        CommentEventDto commentEventDto = createCommentEventDto(commentResponseDto);
+        commentEventPublisher.publish(commentEventDto);
+        log.info("Notification about new comment sent to notification service {}", commentEventDto);
+        return commentResponseDto;
+    }
+
+    private CommentEventDto createCommentEventDto(CommentResponseDto commentResponseDto) {
         CommentEventDto commentEventDto = new CommentEventDto();
         commentEventDto.setPostAuthorId(postRepository.getPostById(commentResponseDto.getPostId()).getAuthorId());
         commentEventDto.setCommentAuthorId(commentResponseDto.getAuthorId());
         commentEventDto.setPostId(commentResponseDto.getPostId());
         commentEventDto.setCommentId(commentResponseDto.getId());
         commentEventDto.setCommentContent(commentResponseDto.getContent());
-        commentEventPublisher.publish(commentEventDto);
-        log.info("Notification about new comment sent to notification service {}", commentEventDto);
-        return commentResponseDto;
+        return commentEventDto;
     }
 
     public CommentResponseDto updateComment(CommentUpdateRequestDto commentUpdateRequestDto) {
