@@ -3,9 +3,12 @@ package faang.school.postservice.service.comment;
 import faang.school.postservice.dto.comment.CommentRequestDto;
 import faang.school.postservice.dto.comment.CommentResponseDto;
 import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
+import faang.school.postservice.dto.events_dto.CommentEventDto;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
+import faang.school.postservice.publisher.CommentEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
+import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.validator.comment.CommentValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +25,8 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final CommentValidator commentValidator;
     private final CommentMapper commentMapper;
+    private final CommentEventPublisher commentEventPublisher;
+    private final PostRepository postRepository;
 
     public CommentResponseDto createComment(CommentRequestDto commentRequestDto) {
         commentValidator.validateAuthorExists(commentRequestDto.getAuthorId());
@@ -31,8 +36,23 @@ public class CommentService {
         comment.setLikes(new ArrayList<>());
 
         Comment savedComment = commentRepository.save(comment);
+        CommentResponseDto commentResponseDto = commentMapper.toDto(savedComment);
         log.info("New comment with id: {} created", comment.getId());
-        return commentMapper.toDto(savedComment);
+
+        CommentEventDto commentEventDto = createCommentEventDto(commentResponseDto);
+        commentEventPublisher.publish(commentEventDto);
+        log.info("Notification about new comment sent to notification service {}", commentEventDto);
+        return commentResponseDto;
+    }
+
+    private CommentEventDto createCommentEventDto(CommentResponseDto commentResponseDto) {
+        CommentEventDto commentEventDto = new CommentEventDto();
+        commentEventDto.setPostAuthorId(postRepository.getPostById(commentResponseDto.getPostId()).getAuthorId());
+        commentEventDto.setCommentAuthorId(commentResponseDto.getAuthorId());
+        commentEventDto.setPostId(commentResponseDto.getPostId());
+        commentEventDto.setCommentId(commentResponseDto.getId());
+        commentEventDto.setCommentContent(commentResponseDto.getContent());
+        return commentEventDto;
     }
 
     public CommentResponseDto updateComment(CommentUpdateRequestDto commentUpdateRequestDto) {
