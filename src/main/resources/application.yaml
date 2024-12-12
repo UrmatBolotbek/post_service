@@ -28,7 +28,7 @@ spring:
       host: localhost
       channels:
         comment-notification-channel: comment-topic
-
+        ad-bought-channel: ad-bought-topic
 
 server:
   port: 8081
