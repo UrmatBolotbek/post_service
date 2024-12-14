@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -52,6 +53,7 @@ public class CommentService {
         commentEventDto.setPostId(commentResponseDto.getPostId());
         commentEventDto.setCommentId(commentResponseDto.getId());
         commentEventDto.setCommentContent(commentResponseDto.getContent());
+        commentEventDto.setCommentedAt(LocalDateTime.now());
         return commentEventDto;
     }
 
