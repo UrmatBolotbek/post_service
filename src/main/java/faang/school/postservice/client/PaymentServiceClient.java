@@ -12,4 +12,6 @@ public interface PaymentServiceClient {
 
     @PostMapping("/api/payment")
     ResponseEntity<PaymentResponse> sendPayment(@RequestBody PaymentRequest paymentRequest);
+
+    boolean processPayment(long userId, int price);
 }
