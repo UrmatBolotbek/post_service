@@ -27,7 +27,7 @@ spring:
       port: 6379
       host: localhost
       channels:
-        comment-notification-channel: comment-topic
+        comment-channel: comment-topic
 
 
 server:
