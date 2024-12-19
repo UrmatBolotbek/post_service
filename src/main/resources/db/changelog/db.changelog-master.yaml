@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/changeset/post_V004_moderator.sql
   - include:
       file: db/changelog/changeset/post_V005__ad.sql
+  - include:
+      file: db/changelog/changeset/post_V006_update.sql

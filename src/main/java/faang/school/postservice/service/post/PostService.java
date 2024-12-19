@@ -5,10 +5,14 @@ import faang.school.postservice.dto.post.PostRequestDto;
 import faang.school.postservice.dto.post.PostResponseDto;
 import faang.school.postservice.dto.post.PostUpdateDto;
 import faang.school.postservice.dto.resource.ResourceResponseDto;
+import faang.school.postservice.dto.user.UserForBanEventDto;
 import faang.school.postservice.mapper.post.PostMapper;
 import faang.school.postservice.mapper.resource.ResourceMapper;
+import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.model.Resource;
+import faang.school.postservice.publisher.UserBanEventPublisher;
+import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.service.post.filter.PostFilters;
 import faang.school.postservice.util.ModerationDictionary;
@@ -26,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -42,6 +47,8 @@ public class PostService {
     private final PostValidator postValidator;
     private final List<PostFilters> postFilters;
     private final ModerationDictionary moderationDictionary;
+    private final CommentRepository commentRepository;
+    private final UserBanEventPublisher publisher;
 
     public PostResponseDto create(PostRequestDto requestDto, List<MultipartFile> images, List<MultipartFile> audio) {
         postValidator.validateCreate(requestDto);
@@ -181,4 +188,5 @@ public class PostService {
             postRepository.save(post);
         });
     }
+
 }

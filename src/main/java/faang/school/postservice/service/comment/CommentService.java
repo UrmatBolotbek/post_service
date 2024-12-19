@@ -4,9 +4,11 @@ import faang.school.postservice.dto.comment.CommentRequestDto;
 import faang.school.postservice.dto.comment.CommentResponseDto;
 import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
 import faang.school.postservice.dto.events_dto.CommentEventDto;
+import faang.school.postservice.dto.user.UserForBanEventDto;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.publisher.CommentEventPublisher;
+import faang.school.postservice.publisher.UserBanEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.validator.comment.CommentValidator;
@@ -18,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class CommentService {
     private final CommentValidator commentValidator;
     private final CommentMapper commentMapper;
     private final CommentEventPublisher commentEventPublisher;
+    private final UserBanEventPublisher banPublisher;
     private final PostRepository postRepository;
 
     public CommentResponseDto createComment(CommentRequestDto commentRequestDto) {
@@ -81,5 +85,16 @@ public class CommentService {
     public void deleteComment(Long commentId) {
         commentRepository.deleteById(commentId);
         log.info("Comment with id: {} deleted", commentId);
+    }
+
+    public void commenterBanner() {
+        commentRepository.findAll().stream()
+                .filter(comment -> !comment.isVerified())
+                .collect(Collectors.groupingBy(Comment::getAuthorId, Collectors.counting()))
+                .entrySet().stream().filter(comment -> comment.getValue() > 5).forEach(comment -> {
+                    UserForBanEventDto eventDto = new UserForBanEventDto();
+                    eventDto.setId(comment.getKey());
+                    banPublisher.publish(eventDto);
+                });
     }
 }
