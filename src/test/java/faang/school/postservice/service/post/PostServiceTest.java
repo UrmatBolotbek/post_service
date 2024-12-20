@@ -1,21 +1,27 @@
 package faang.school.postservice.service.post;
 
+import faang.school.postservice.config.api.SpellingConfig;
 import faang.school.postservice.dto.post.PostFilterDto;
 import faang.school.postservice.dto.post.PostRequestDto;
 import faang.school.postservice.dto.post.PostResponseDto;
 import faang.school.postservice.dto.post.PostUpdateDto;
 import faang.school.postservice.mapper.post.PostMapper;
+import faang.school.postservice.model.Like;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.service.post.filter.PostFilters;
 import faang.school.postservice.service.resource.ResourceService;
 import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.post.PostValidator;
+
+import org.junit.jupiter.api.BeforeEach;
 import faang.school.postservice.validator.resource.ResourceValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.http.HttpEntity;
+import org.springframework.web.client.RestTemplate;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,12 +33,12 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -47,6 +53,11 @@ public class PostServiceTest {
     @Mock
     private PostValidator postValidator;
     @Mock
+    private RestTemplate restTemplate;
+
+    @Mock
+    private SpellingConfig api;
+    @Mock
     private ResourceValidator resourceValidator;
     @Mock
     private ResourceService resourceService;
@@ -56,6 +67,78 @@ public class PostServiceTest {
     private ModerationDictionary moderationDictionary;
     @InjectMocks
     private PostService postService;
+
+    private Post post;
+    private PostRequestDto postDto;
+    private PostResponseDto postResponseDto;
+    private List<Post> preparedPosts;
+
+    @BeforeEach
+    void setUp() {
+        postDto = new PostRequestDto();
+
+        // 1 опубликован 3 (1 из них удалён) не опубликовано
+        // 1 удалён 3 не удалено
+        preparedPosts = new ArrayList<>();
+
+        post = new Post();
+        post.setId(1L);
+        post.setContent("This is errror");
+        postDto.setAuthorId(1L);
+        post.setLikes(List.of(new Like(), new Like(), new Like()));
+        post.setPublished(false);
+        post.setDeleted(false);
+        post.setCreatedAt(LocalDateTime.now().plusDays(1));
+        preparedPosts.add(post);
+
+        Post post2 = new Post();
+        post2.setId(2L);
+        post2.setLikes(List.of(new Like(), new Like()));
+        post2.setPublished(true);
+        post2.setDeleted(false);
+        post2.setCreatedAt(LocalDateTime.now().plusDays(2));
+        preparedPosts.add(post2);
+
+        Post post3 = new Post();
+        post3.setId(3L);
+        post3.setLikes(List.of(new Like(), new Like(), new Like()));
+        post3.setPublished(false);
+        post3.setDeleted(false);
+        post3.setCreatedAt(LocalDateTime.now().plusDays(3));
+        preparedPosts.add(post3);
+
+        Post post4 = new Post();
+        post4.setId(4L);
+        post4.setLikes(List.of(new Like(), new Like()));
+        post4.setPublished(false);
+        post4.setDeleted(true);
+        post4.setCreatedAt(LocalDateTime.now().plusDays(4));
+        preparedPosts.add(post4);
+        postResponseDto = new PostResponseDto();
+        postResponseDto.setId(1L);
+        postResponseDto.setAuthorId(1L);
+    }
+
+    @Test
+    void testCheckSpellingSuccess() throws InterruptedException {
+        String prepareDate = "{\"elements\":[{\"id\":0,\"errors\":[{\"suggestions\":" +
+                "[\"error\",\"Rorer\",\"eerier\",\"arrear\",\"rower\",\"Euro\",\"rehear\",\"err\",\"ROR\",\"Orr\"]" +
+                ",\"position\":8,\"word\":\"errror\"}]}],\"spellingErrorCount\":1}";
+        List<Post> posts = List.of(post);
+        when(postRepository.findByPublishedFalse()).thenReturn(posts);
+        when(api.getKey()).thenReturn("key");
+        when(api.getEndpoint()).thenReturn("endpoint");
+        when(restTemplate.postForObject(any(String.class), any(HttpEntity.class), eq(String.class))).thenReturn(prepareDate);
+
+        postService.checkSpelling();
+
+        verify(postRepository, times(1)).findByPublishedFalse();
+        verify(api, times(1)).getKey();
+        verify(api, times(1)).getEndpoint();
+        verify(postRepository, times(1)).save(post);
+        Thread.sleep(200);
+        assertEquals("This is error", posts.get(0).getContent());
+    }
 
     @Test
     public void shouldCreatePosts() {

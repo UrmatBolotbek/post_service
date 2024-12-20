@@ -31,12 +31,24 @@ spring:
         ban-channel: user-ban
 
 
+
+
 server:
   port: 8081
+
+scheduling:
+  cron: "0 0 12 * * *"
+
+spelling:
+  key: c2b61bcbe1msh7baed25073c44a3p111bcfjsn7841c9808baa
+  endpoint: https://jspell-checker.p.rapidapi.com/check
+  content: application/json
+  host: jspell-checker.p.rapidapi.com
 
 logging:
   level:
     root: info
+
 
 moderation-scheduler:
   cron: 0 0 * * * *
