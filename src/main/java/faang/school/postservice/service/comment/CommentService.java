@@ -11,10 +11,13 @@ import faang.school.postservice.publisher.CommentEventPublisher;
 import faang.school.postservice.publisher.UserBanEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.comment.CommentValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -26,12 +29,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class CommentService {
+
     private final CommentRepository commentRepository;
     private final CommentValidator commentValidator;
     private final CommentMapper commentMapper;
     private final CommentEventPublisher commentEventPublisher;
     private final UserBanEventPublisher banPublisher;
     private final PostRepository postRepository;
+    private final ModerationDictionary moderationDictionary;
 
     public CommentResponseDto createComment(CommentRequestDto commentRequestDto) {
         commentValidator.validateAuthorExists(commentRequestDto.getAuthorId());
@@ -39,6 +44,10 @@ public class CommentService {
 
         Comment comment = commentMapper.toEntity(commentRequestDto);
         comment.setLikes(new ArrayList<>());
+
+        if (!moderationDictionary.isVerified(comment.getContent())) {
+            comment.setVerified(false);
+        }
 
         Comment savedComment = commentRepository.save(comment);
         CommentResponseDto commentResponseDto = commentMapper.toDto(savedComment);
@@ -87,6 +96,7 @@ public class CommentService {
         log.info("Comment with id: {} deleted", commentId);
     }
 
+    @Async("moderationPool")
     public void commenterBanner() {
         commentRepository.findAll().stream()
                 .filter(comment -> !comment.isVerified())
@@ -97,4 +107,5 @@ public class CommentService {
                     banPublisher.publish(eventDto);
                 });
     }
+
 }
