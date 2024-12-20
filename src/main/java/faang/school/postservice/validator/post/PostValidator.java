@@ -3,7 +3,6 @@ package faang.school.postservice.validator.post;
 import faang.school.postservice.client.ProjectServiceClient;
 import faang.school.postservice.client.UserServiceClient;
 import faang.school.postservice.dto.post.PostRequestDto;
-import faang.school.postservice.dto.post.PostUpdateDto;
 import faang.school.postservice.excaption.post.PostException;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.PostRepository;
@@ -41,7 +40,6 @@ public class PostValidator {
         }
 
     }
-
 
 
     public void validatePublish(Post post) {

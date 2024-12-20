@@ -1,19 +1,19 @@
 package faang.school.postservice.dto.post;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.util.List;
+
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class PostUpdateDto {
-    @NotNull
-    @NotBlank
-    private Long id;
-    @NotNull
-    @NotBlank
     private String content;
-    private LocalDateTime updatedAt;
-
+    private List<Long> imageFilesIdsToDelete;
+    private List<Long> audioFilesIdsToDelete;
 }

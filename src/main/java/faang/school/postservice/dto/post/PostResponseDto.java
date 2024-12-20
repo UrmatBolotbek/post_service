@@ -1,5 +1,6 @@
 package faang.school.postservice.dto.post;
 
+import faang.school.postservice.dto.resource.ResourceResponseDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,10 +19,14 @@ public class PostResponseDto {
     private Long authorId;
     private boolean published;
     private Long projectId;
-    private LocalDateTime publishedAt;
-    private LocalDateTime scheduledAt;
     private LocalDateTime createdAt;
     private List<Long> likeIds;
     private Long countLikes;
     private List<Long> commentIds;
+    private LocalDateTime scheduledAt;
+    private LocalDateTime publishedAt;
+    private LocalDateTime updatedAt;
+    private LocalDateTime deletedAt;
+    private List<ResourceResponseDto> images;
+    private List<ResourceResponseDto> audio;
 }

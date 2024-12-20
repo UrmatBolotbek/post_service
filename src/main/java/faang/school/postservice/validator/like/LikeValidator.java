@@ -3,10 +3,11 @@ package faang.school.postservice.validator.like;
 import faang.school.postservice.client.UserServiceClient;
 import faang.school.postservice.model.Like;
 import faang.school.postservice.repository.LikeRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-
 import java.util.Optional;
 
+@RequiredArgsConstructor
 @Component
 public class LikeValidator {
 
@@ -27,5 +28,6 @@ public class LikeValidator {
     public void validateUserId(Long userId) {
         userServiceClient.getUser(userId);
     }
+
 
 }

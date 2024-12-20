@@ -5,11 +5,18 @@ import faang.school.postservice.config.api.SpellingConfig;
 import faang.school.postservice.dto.post.PostRequestDto;
 import faang.school.postservice.dto.post.PostResponseDto;
 import faang.school.postservice.dto.post.PostUpdateDto;
+import faang.school.postservice.dto.resource.ResourceResponseDto;
 import faang.school.postservice.mapper.post.PostMapper;
+import faang.school.postservice.mapper.resource.ResourceMapper;
 import faang.school.postservice.model.Post;
+import faang.school.postservice.model.Resource;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.service.post.filter.PostFilters;
+import faang.school.postservice.util.ModerationDictionary;
+import faang.school.postservice.service.resource.ResourceService;
+import faang.school.postservice.service.s3.S3Service;
 import faang.school.postservice.validator.post.PostValidator;
+import faang.school.postservice.validator.resource.ResourceValidator;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +26,16 @@ import org.json.JSONObject;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -39,23 +52,108 @@ public class PostService {
 
     ExecutorService execute = Executors.newFixedThreadPool(10);
 
+    private final ResourceService resourceService;
+    private final S3Service s3Service;
     private final PostRepository postRepository;
     private final PostMapper postMapper;
     private final SpellingConfig api;
     private final RestTemplate restTemplate;
+    private final ResourceMapper resourceMapper;
+    private final ResourceValidator resourceValidator;
     private final PostValidator postValidator;
     private final List<PostFilters> postFilters;
+    private final ModerationDictionary moderationDictionary;
 
-    public PostResponseDto create(PostRequestDto postRequestDto) {
-        postValidator.validateCreate(postRequestDto);
-
-        Post post = postMapper.toEntity(postRequestDto);
+    public PostResponseDto create(PostRequestDto requestDto, List<MultipartFile> images, List<MultipartFile> audio) {
+        postValidator.validateCreate(requestDto);
+        Post post = postMapper.toEntity(requestDto);
 
         post.setPublished(false);
         post.setDeleted(false);
-        Post savePost = postRepository.save(post);
+        post.setLikes(new ArrayList<>());
+        post.setComments(new ArrayList<>());
+        post.setResources(new ArrayList<>());
 
-        return  postMapper.toDto(savePost);
+        post = postRepository.save(post);
+
+        uploadResourcesToPost(images, "image", post);
+        uploadResourcesToPost(audio, "audio", post);
+
+        log.info("Post with id {} created", post.getId());
+        post = postRepository.save(post);
+
+        PostResponseDto responseDto = postMapper.toDto(post);
+        populateResourceUrls(responseDto, post);
+        return responseDto;
+    }
+
+    public PostResponseDto updatePost(Long postId, PostUpdateDto updateDto, List<MultipartFile> images, List<MultipartFile> audio) {
+        Post post = postRepository.getPostById(postId);
+
+        if (updateDto.getContent() != null) {
+            post.setContent(updateDto.getContent());
+        }
+
+        deleteResourcesFromPost(updateDto.getImageFilesIdsToDelete());
+        deleteResourcesFromPost(updateDto.getAudioFilesIdsToDelete());
+
+        uploadResourcesToPost(images, "image", post);
+        uploadResourcesToPost(audio, "audio", post);
+
+        resourceValidator.validateResourceCounts(post);
+
+        post.setUpdatedAt(LocalDateTime.now());
+        post = postRepository.save(post);
+        log.info("Post with id {} updated", postId);
+
+        PostResponseDto responseDto = postMapper.toDto(post);
+        populateResourceUrls(responseDto, post);
+        return responseDto;
+    }
+
+    public PostResponseDto getPost(Long postId) {
+        Post post = postRepository.getPostById(postId);
+        PostResponseDto responseDto = postMapper.toDto(post);
+        populateResourceUrls(responseDto, post);
+        return responseDto;
+    }
+
+    private void uploadResourcesToPost(List<MultipartFile> files, String resourceType, Post post) {
+        if (files != null) {
+            log.info("Uploading {} {} resources for post ID {}", files.size(), resourceType, post.getId());
+            List<Resource> resources = resourceService.uploadResources(files, resourceType, post);
+            post.getResources().addAll(resources);
+            log.info("{} {} resources uploaded successfully for post ID {}", resources.size(), resourceType, post.getId());
+        }
+    }
+
+    private void populateResourceUrls(PostResponseDto responseDto, Post post) {
+        List<ResourceResponseDto> imageResources = post.getResources().stream()
+                .filter(resource -> "image".equals(resource.getType()))
+                .map(this::mapResourceToDto)
+                .toList();
+
+        List<ResourceResponseDto> audioResources = post.getResources().stream()
+                .filter(resource -> "audio".equals(resource.getType()))
+                .map(this::mapResourceToDto)
+                .toList();
+
+        responseDto.setImages(imageResources);
+        responseDto.setAudio(audioResources);
+    }
+
+    private ResourceResponseDto mapResourceToDto(Resource resource) {
+        ResourceResponseDto dto = resourceMapper.toDto(resource);
+        dto.setDownloadUrl(s3Service.generatePresignedUrl(resource.getKey()));
+        return dto;
+    }
+
+    private void deleteResourcesFromPost(List<Long> resourceIds) {
+        if (resourceIds != null) {
+            log.info("Deleting {} resources", resourceIds.size());
+            resourceService.deleteResources(resourceIds);
+            log.info("{} resources deleted successfully", resourceIds.size());
+        }
     }
 
     public PostResponseDto publishPost(Long id) {
@@ -64,14 +162,6 @@ public class PostService {
         post.setPublished(true);
         post.setDeleted(false);
 
-        return postMapper.toDto(postRepository.save(post));
-    }
-
-    public PostResponseDto updatePost(PostUpdateDto postDto) {
-        Objects.requireNonNull(postDto, "PostUpdateDto cannot be null");
-
-        Post post = postValidator.validateAndGetPostById(postDto.getId());
-        post.setContent(postDto.getContent());
         return postMapper.toDto(postRepository.save(post));
     }
 
@@ -204,6 +294,17 @@ public class PostService {
                 .filter(filter -> filter.isApplicable(filterDto))
                 .forEach(filter -> filter.apply(posts, filterDto));
 
-        return postMapper.toDtoList(posts.toList());
+        return postMapper.toListPostDto(posts.toList());
+    }
+
+    @Async("moderationPool")
+    public void verifyPostsForModeration(List<Post> posts) {
+        posts.forEach(post -> {
+            post.setVerifiedDate(LocalDateTime.now());
+            boolean isVerified = moderationDictionary.isVerified(post.getContent());
+            post.setVerified(isVerified);
+            log.info("Post with id {} has been verified and has status {}", post.getId(), isVerified);
+            postRepository.save(post);
+        });
     }
 }

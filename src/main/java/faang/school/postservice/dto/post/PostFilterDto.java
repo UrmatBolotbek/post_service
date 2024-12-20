@@ -15,5 +15,4 @@ public class PostFilterDto {
     private Long projectId;
     private boolean published;
     private PostType type;
-
 }

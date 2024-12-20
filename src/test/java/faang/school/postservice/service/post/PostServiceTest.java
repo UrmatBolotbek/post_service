@@ -10,9 +10,12 @@ import faang.school.postservice.model.Like;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.service.post.filter.PostFilters;
+import faang.school.postservice.service.resource.ResourceService;
+import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.post.PostValidator;
 
 import org.junit.jupiter.api.BeforeEach;
+import faang.school.postservice.validator.resource.ResourceValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +23,7 @@ import org.mockito.Mock;
 import org.springframework.http.HttpEntity;
 import org.springframework.web.client.RestTemplate;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -32,9 +36,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,7 +62,13 @@ public class PostServiceTest {
     @Mock
     private SpellingConfig api;
     @Mock
+    private ResourceValidator resourceValidator;
+    @Mock
+    private ResourceService resourceService;
+    @Mock
     private List<PostFilters> postFilters;
+    @Mock
+    private ModerationDictionary moderationDictionary;
     @InjectMocks
     private PostService postService;
 
@@ -130,23 +146,45 @@ public class PostServiceTest {
 
     @Test
     public void shouldCreatePosts() {
-        PostRequestDto postDto = new PostRequestDto();
-        postDto.setContent("Test content");
+        PostRequestDto requestDto = PostRequestDto.builder()
+                .authorId(1L)
+                .projectId(2L)
+                .content("Sample Content")
+                .build();
+
+        List<MultipartFile> images = List.of(mock(MultipartFile.class));
+        List<MultipartFile> audio = List.of(mock(MultipartFile.class));
 
         Post post = new Post();
-        post.setContent("Test content");
+        post.setId(1L);
+        post.setResources(new ArrayList<>());
 
-        when(postMapper.toEntity(postDto)).thenReturn(post);
-        when(postRepository.save(post)).thenReturn(post);
+        Post mappedPost = new Post();
+        mappedPost.setPublished(false);
+        mappedPost.setDeleted(false);
+        mappedPost.setLikes(new ArrayList<>());
+        mappedPost.setComments(new ArrayList<>());
+        mappedPost.setResources(new ArrayList<>());
 
-        postService.create(postDto);
+        PostResponseDto responseDto = PostResponseDto.builder()
+                .id(1L)
+                .content("Sample Content")
+                .authorId(1L)
+                .projectId(2L)
+                .build();
 
-        verify(postValidator).validateCreate(postDto);
-        verify(postMapper).toEntity(postDto);
-        verify(postRepository).save(post);
+        when(postMapper.toEntity(requestDto)).thenReturn(mappedPost);
+        when(postRepository.save(any(Post.class))).thenReturn(post);
+        when(postMapper.toDto(any(Post.class))).thenReturn(responseDto);
 
-        assertFalse(post.isPublished());
-        assertFalse(post.isDeleted());
+        PostResponseDto actualResponse = postService.create(requestDto, images, audio);
+
+        assertEquals(1L, actualResponse.getId());
+        assertEquals("Sample Content", actualResponse.getContent());
+
+        verify(postValidator, times(1)).validateCreate(requestDto);
+        verify(resourceService, times(2)).uploadResources(anyList(), anyString(), eq(post));
+        verify(postRepository, times(2)).save(any(Post.class));
     }
 
     @Test
@@ -178,29 +216,43 @@ public class PostServiceTest {
     }
 
     @Test
-    public void shouldUpdatePost() {
+    void shouldUpdatePostSuccessfully() {
+        Long postId = 1L;
 
-        PostUpdateDto postDto = new PostUpdateDto();
-        postDto.setId(1L);
-        postDto.setContent("Updated content");
+        PostUpdateDto updateDto = PostUpdateDto.builder()
+                .content("Updated Content")
+                .imageFilesIdsToDelete(List.of(1L))
+                .audioFilesIdsToDelete(List.of(2L))
+                .build();
 
-        Post existingPost = new Post();
-        existingPost.setId(1L);
-        existingPost.setContent("Old content");
+        List<MultipartFile> images = List.of(mock(MultipartFile.class));
+        List<MultipartFile> audio = List.of(mock(MultipartFile.class));
 
-        Post updatedPost = new Post();
-        updatedPost.setId(1L);
-        updatedPost.setContent("Updated content");
+        Post post = new Post();
+        post.setId(postId);
+        post.setResources(new ArrayList<>());
 
-        when(postValidator.validateAndGetPostById(1L)).thenReturn(existingPost);
-        when(postRepository.save(existingPost)).thenReturn(updatedPost);
+        PostResponseDto responseDto = PostResponseDto.builder()
+                .id(postId)
+                .content("Updated Content")
+                .build();
 
-        PostResponseDto result = postService.updatePost(postDto);
+        when(postRepository.getPostById(postId)).thenReturn(post);
+        when(postRepository.save(any(Post.class))).thenReturn(post);
+        when(postMapper.toDto(post)).thenReturn(responseDto);
 
-        verify(postValidator).validateAndGetPostById(1L);
-        verify(postRepository).save(existingPost);
-        verify(postMapper).toDto(updatedPost);
+        PostResponseDto actualResponse = postService.updatePost(postId, updateDto, images, audio);
 
+        assertEquals(postId, actualResponse.getId());
+        assertEquals("Updated Content", actualResponse.getContent());
+
+        verify(postRepository, times(1)).getPostById(postId);
+        verify(resourceService, times(1)).deleteResources(eq(List.of(1L)));
+        verify(resourceService, times(1)).deleteResources(eq(List.of(2L)));
+        verify(resourceService, times(1)).uploadResources(eq(images), eq("image"), eq(post));
+        verify(resourceService, times(1)).uploadResources(eq(audio), eq("audio"), eq(post));
+        verify(resourceValidator, times(1)).validateResourceCounts(post);
+        verify(postRepository, times(1)).save(post);
     }
 
     @Test
@@ -266,14 +318,38 @@ public class PostServiceTest {
         when(postFilters.stream()).thenReturn(Stream.of(filter));
         when(filter.isApplicable(filterDto)).thenReturn(true);
         when(filter.apply(any(), eq(filterDto))).thenReturn(Stream.of(post1, post2));
-        when(postMapper.toDtoList(anyList())).thenReturn(Arrays.asList(postDto1, postDto2));
+        when(postMapper.toListPostDto(anyList())).thenReturn(Arrays.asList(postDto1, postDto2));
 
         List<PostResponseDto> result = postService.getPosts(filterDto);
 
         verify(postRepository).findAll();
         verify(filter).isApplicable(filterDto);
         verify(filter).apply(any(), eq(filterDto));
-        verify(postMapper).toDtoList(anyList());
+        verify(postMapper).toListPostDto(anyList());
         assertEquals(2, result.size());
     }
+
+    @Test
+    public void testVerifyPostsForModeration() {
+        Post post1 = new Post();
+        post1.setId(1L);
+        post1.setContent("Test1");
+        Post post2 = new Post();
+        post1.setId(2L);
+        post1.setContent("Test2");
+        List<Post> batch = Arrays.asList(post1, post2);
+
+        when(moderationDictionary.isVerified(post1.getContent())).thenReturn(true);
+        when(moderationDictionary.isVerified(post2.getContent())).thenReturn(false);
+
+        postService.verifyPostsForModeration(batch);
+
+        assertEquals(LocalDateTime.now().getMinute(), post1.getVerifiedDate().getMinute(), "Verified date should be set");
+        assertTrue(post1.getVerified(), "Post 1 should be verified");
+        assertEquals(LocalDateTime.now().getMinute(), post2.getVerifiedDate().getMinute(), "Verified date should be set");
+        assertFalse(post2.getVerified(), "Post 2 should not be verified");
+
+        verify(postRepository, times(2)).save(any(Post.class));
+    }
+
 }

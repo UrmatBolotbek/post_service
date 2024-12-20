@@ -7,4 +7,6 @@
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
     </root>
+    <logger name="f.s.p.v.comment.CommentValidator" level="WARN" />
+    <logger name="f.s.p.validator.album.AlbumValidator" level="WARN" />
 </configuration>
