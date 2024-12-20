@@ -5,10 +5,12 @@ import faang.school.postservice.dto.comment.CommentResponseDto;
 import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
 import faang.school.postservice.dto.events_dto.CommentEventDto;
 import faang.school.postservice.dto.user.UserDto;
+import faang.school.postservice.dto.user.UserForBanEventDto;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.publisher.CommentEventPublisher;
+import faang.school.postservice.publisher.UserBanEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.validator.comment.CommentValidator;
@@ -47,6 +49,9 @@ class CommentServiceTest {
 
     @Mock
     private CommentEventPublisher commentEventPublisher;
+
+    @Mock
+    private UserBanEventPublisher banPublisher;
 
     @InjectMocks
     private CommentService commentService;
@@ -170,5 +175,24 @@ class CommentServiceTest {
 
         verify(commentRepository).deleteById(commentId);
         verifyNoMoreInteractions(commentRepository);
+    }
+
+    @Test
+    void testCommenterBanner() {
+        Comment comment1 = Comment.builder().authorId(24L).verified(false).build();
+        Comment comment2 = Comment.builder().authorId(24L).verified(false).build();
+        Comment comment3 = Comment.builder().authorId(24L).verified(false).build();
+        Comment comment4 = Comment.builder().authorId(24L).verified(false).build();
+        Comment comment5 = Comment.builder().authorId(24L).verified(false).build();
+        Comment comment6 = Comment.builder().authorId(25L).verified(false).build();
+        Comment comment7 = Comment.builder().authorId(24L).verified(false).build();
+        List<Comment> comments = List.of(comment1,comment2,comment3,comment4,comment5,comment6, comment7);
+        UserForBanEventDto userForBanEventDto = new UserForBanEventDto();
+        userForBanEventDto.setId(24L);
+
+        when(commentRepository.findAll()).thenReturn(comments);
+
+        commentService.commenterBanner();
+        verify(banPublisher).publish(userForBanEventDto);
     }
 }
