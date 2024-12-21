@@ -41,6 +41,12 @@ public class PostValidator {
 
     }
 
+    public void validateUserToPost(Post post, long authorId) {
+        if (post.getAuthorId() != authorId) {
+            throw new EntityExistsException("Post not found with authorId: " + authorId);
+        }
+    }
+
 
     public void validatePublish(Post post) {
         if (post.isPublished()) {
@@ -54,6 +60,5 @@ public class PostValidator {
             throw new PostException("Post already deleted");
         }
     }
-
 
 }

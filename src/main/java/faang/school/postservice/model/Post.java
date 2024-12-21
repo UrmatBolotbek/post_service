@@ -62,6 +62,9 @@ public class Post {
     @Column(name = "deleted", nullable = false)
     private boolean deleted;
 
+    @ManyToMany(mappedBy = "post")
+    private List<Hashtag> hashtags;
+
     @CreationTimestamp
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "created_at")
