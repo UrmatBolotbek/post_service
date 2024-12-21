@@ -9,15 +9,24 @@ import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.validator.post.PostValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class HashtagService {
+
+    @Bean
+    public ExecutorService hashTagPool() {
+        return Executors.newFixedThreadPool(10);
+    }
 
     private final HashTagRepository hashTagRepository;
     private final PostRepository postRepository;
@@ -25,6 +34,7 @@ public class HashtagService {
     private final PostMapper postMapper;
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "postsByHashtag", key = "#hashtag", unless = "#hashtag == null")
     public List<PostResponseDto> getPostsByHashtag(String hashtag) {
         List<Post> posts = hashTagRepository.findAllByHashtagTitle(hashtag);
         return postMapper.toListPostDto(posts);

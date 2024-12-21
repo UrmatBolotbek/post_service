@@ -4,6 +4,7 @@ import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.post.PostResponseDto;
 import faang.school.postservice.service.hashtag.HashtagService;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
