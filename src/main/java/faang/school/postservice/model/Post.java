@@ -62,7 +62,7 @@ public class Post {
     @Column(name = "deleted", nullable = false)
     private boolean deleted;
 
-    @ManyToMany(mappedBy = "post")
+    @ManyToMany(mappedBy = "posts")
     private List<Hashtag> hashtags;
 
     @CreationTimestamp

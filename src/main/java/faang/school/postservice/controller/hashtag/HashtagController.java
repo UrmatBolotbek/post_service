@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -16,18 +17,18 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/hashtags")
-public class HashTagController {
+public class HashtagController {
 
     private final HashtagService hashtagService;
     private final UserContext context;
 
-    @GetMapping("/{hashtag}")
-    public List<PostResponseDto> getPostsByHashtag(@PathVariable String hashtag) {
+    @GetMapping("/posts")
+    public List<PostResponseDto> getPostsByHashtag(@RequestParam String hashtag) {
         return hashtagService.getPostsByHashtag(hashtag);
     }
 
-    @PostMapping("/{hashtag}/post/{postId}")
-    public void createHashtagToPost(@PathVariable String hashtag, @PathVariable Long postId) {
+    @PostMapping("/post/{postId}")
+    public void createHashtagToPost(@RequestParam String hashtag, @PathVariable Long postId) {
         hashtagService.createHashtagToPost(hashtag, postId, context.getUserId());
     }
 

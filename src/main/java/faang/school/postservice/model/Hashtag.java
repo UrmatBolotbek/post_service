@@ -9,7 +9,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
-import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,9 +28,8 @@ public class Hashtag {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @Column(name = "hashtag", length = 64, nullable = false, unique = true)
-    @Pattern(regexp = "^#[A-Za-z0-9_]{1,63}$", message = "Название должно начинаться с # и содержать от 1 до 63 допустимых символов (латинские буквы, цифры и _).")
-    private String name;
+    @Column(name = "title", length = 64, nullable = false, unique = true)
+    private String title;
 
     @ManyToMany
     @JoinTable(

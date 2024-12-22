@@ -10,23 +10,15 @@ import faang.school.postservice.validator.post.PostValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class HashtagService {
-
-    @Bean
-    public ExecutorService hashTagPool() {
-        return Executors.newFixedThreadPool(10);
-    }
 
     private final HashTagRepository hashTagRepository;
     private final PostRepository postRepository;
@@ -41,20 +33,24 @@ public class HashtagService {
     }
 
     @Transactional
-    public void createHashtagToPost(String hashtagName, long postId, long userId) {
+    public void createHashtagToPost(String hashtagTitle, long postId, long userId) {
         Post post = postValidator.validateAndGetPostById(postId);
         postValidator.validateUserExist(userId);
         postValidator.validateUserToPost(post, userId);
+        if (!hashtagTitle.startsWith("#")) {
+            hashtagTitle = "#" + hashtagTitle;
+        }
         Hashtag hashtag = new Hashtag();
-        hashtag.setName(hashtagName);
+        hashtag.setTitle(hashtagTitle);
         post.getHashtags().add(hashtag);
         postRepository.save(post);
     }
 
+    @Transactional(readOnly = true)
     public List<String> getAllHashtagByPostId(long postId, long userId) {
         Post post = postValidator.validateAndGetPostById(postId);
         postValidator.validateUserExist(userId);
         postValidator.validateUserToPost(post, userId);
-        return post.getHashtags().stream().map(Hashtag::getName).toList();
+        return post.getHashtags().stream().map(Hashtag::getTitle).toList();
     }
 }

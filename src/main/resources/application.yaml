@@ -30,8 +30,6 @@ spring:
         comment-channel: comment-topic
 
 
-
-
 server:
   port: 8081
 
