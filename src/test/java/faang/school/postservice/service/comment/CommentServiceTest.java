@@ -179,20 +179,13 @@ class CommentServiceTest {
 
     @Test
     void testCommenterBanner() {
-        Comment comment1 = Comment.builder().authorId(24L).verified(false).build();
-        Comment comment2 = Comment.builder().authorId(24L).verified(false).build();
-        Comment comment3 = Comment.builder().authorId(24L).verified(false).build();
-        Comment comment4 = Comment.builder().authorId(24L).verified(false).build();
-        Comment comment5 = Comment.builder().authorId(24L).verified(false).build();
-        Comment comment6 = Comment.builder().authorId(25L).verified(false).build();
-        Comment comment7 = Comment.builder().authorId(24L).verified(false).build();
-        List<Comment> comments = List.of(comment1,comment2,comment3,comment4,comment5,comment6, comment7);
         UserForBanEventDto userForBanEventDto = new UserForBanEventDto();
         userForBanEventDto.setId(24L);
 
-        when(commentRepository.findAll()).thenReturn(comments);
+        when(commentRepository.getAuthorIdsForBanFromComments()).thenReturn(List.of(24L));
 
         commentService.commenterBanner();
         verify(banPublisher).publish(userForBanEventDto);
+        verify(commentRepository).deleteAllById(24L);
     }
 }

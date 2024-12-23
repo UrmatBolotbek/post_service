@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -97,15 +98,15 @@ public class CommentService {
     }
 
     @Async("moderationPool")
+    @Transactional
     public void commenterBanner() {
-        commentRepository.findAll().stream()
-                .filter(comment -> !comment.isVerified())
-                .collect(Collectors.groupingBy(Comment::getAuthorId, Collectors.counting()))
-                .entrySet().stream().filter(comment -> comment.getValue() > 5).forEach(comment -> {
-                    UserForBanEventDto eventDto = new UserForBanEventDto();
-                    eventDto.setId(comment.getKey());
-                    banPublisher.publish(eventDto);
-                });
+        commentRepository.getAuthorIdsForBanFromComments().forEach(authorId -> {
+            UserForBanEventDto eventDto = new UserForBanEventDto();
+            eventDto.setId(authorId);
+            banPublisher.publish(eventDto);
+            commentRepository.deleteAllById(authorId);
+            log.info("Comments with authorId: {} deleted", authorId);
+        });
     }
 
 }
