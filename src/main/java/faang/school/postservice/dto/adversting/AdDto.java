@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
-
 public class AdDto {
     private final Long postId;
     private final Long userId;

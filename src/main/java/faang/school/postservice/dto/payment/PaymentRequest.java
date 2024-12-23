@@ -12,9 +12,9 @@ public record PaymentRequest(
 
         @Min(1)
         @NotNull
-        BigDecimal amount,
+        int amount,
 
         @NotNull
-        Currency currency
+        String currency
 ) {
 }
