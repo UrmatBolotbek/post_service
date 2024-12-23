@@ -186,6 +186,6 @@ class CommentServiceTest {
 
         commentService.commenterBanner();
         verify(banPublisher).publish(userForBanEventDto);
-        verify(commentRepository).deleteAllById(24L);
+        verify(commentRepository).findAllByAuthorId(24L);
     }
 }

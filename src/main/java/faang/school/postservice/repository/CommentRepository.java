@@ -17,11 +17,10 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Query("SELECT c FROM Comment c WHERE c.post.id = :postId")
     List<Comment> findAllByPostId(long postId);
 
-    @Modifying
-    @Query("DELETE FROM Comment c WHERE c.id = :id")
-    void deleteAllById(@Param("id") Long id);
+    List<Comment> findAllByAuthorId(long authorId);
 
-    @Query("SELECT c.authorId FROM Comment c WHERE c.verified = false GROUP BY c.authorId HAVING COUNT(c) > 5")
+    @Query("SELECT c.authorId FROM Comment c WHERE c.verified = false and c.vision != false" +
+            " GROUP BY c.authorId HAVING COUNT(c) > 5")
     List<Long> getAuthorIdsForBanFromComments();
 
     default Comment getCommentById(Long id) {

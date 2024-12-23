@@ -104,8 +104,9 @@ public class CommentService {
             UserForBanEventDto eventDto = new UserForBanEventDto();
             eventDto.setId(authorId);
             banPublisher.publish(eventDto);
-            commentRepository.deleteAllById(authorId);
-            log.info("Comments with authorId: {} deleted", authorId);
+            List<Comment> commentsFromUser = commentRepository.findAllByAuthorId(authorId);
+            commentsFromUser.forEach(comment -> comment.setVision(false));
+            log.info("Author with authorId {} is banned", authorId);
         });
     }
 
