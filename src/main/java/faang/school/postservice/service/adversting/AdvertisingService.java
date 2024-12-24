@@ -29,14 +29,11 @@ public class AdvertisingService {
     private final PaymentServiceClient paymentServiceClient;
 
     public AdDto buyAdvertising(AdvertisingRequestDto request, long userId) {
-
-
         advertisingValidator.validateDate(request);
         advertisingValidator.validatePostForAdvertising(request.getPostId());
 
         AdverstisingPeriod period = AdverstisingPeriod.fromDays(request.getDays());
         processPayment(userId, BigDecimal.valueOf(AdverstisingPeriod.fromDays(request.getDays()).getPrice()));
-
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime endDate = now.plusDays(period.getDays());
@@ -47,6 +44,7 @@ public class AdvertisingService {
 
         return adMapper.toDto(newAd, period);
     }
+
     private void processPayment(long userId, BigDecimal price) {
         PaymentRequest paymentRequest = new PaymentRequest(userId, price, Currency.USD);
         ResponseEntity<PaymentResponse> response = paymentServiceClient.sendPayment(paymentRequest);

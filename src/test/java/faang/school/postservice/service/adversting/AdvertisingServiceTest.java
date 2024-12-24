@@ -15,7 +15,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -23,13 +22,11 @@ import java.time.ZoneId;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class AdvertisingServiceTest {
@@ -61,20 +58,18 @@ public class AdvertisingServiceTest {
 
     @Test
     void buyAdvertising_InvalidPeriod_ShouldThrowException() {
-        // Arrange
+
         long postId = 2L;
         AdvertisingRequestDto advertisingRequest = new AdvertisingRequestDto(0, postId); // 0 дней — недопустимый период
 
         doThrow(new IllegalArgumentException("Days must be a positive number."))
                 .when(advertisingValidator).validateDate(advertisingRequest);
 
-        // Act & Assert
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
                     advertisingService.buyAdvertising(advertisingRequest,userContext.getUserId());
                 }
         );
 
-        // Assert
         assertEquals("Days must be a positive number.", exception.getMessage());
         verify(advertisingValidator).validateDate(advertisingRequest);
         verify(advertisingValidator, never()).validatePostForAdvertising(anyLong());

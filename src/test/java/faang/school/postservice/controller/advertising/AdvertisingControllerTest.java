@@ -63,16 +63,14 @@ public class AdvertisingControllerTest {
         verify(advertisingService).buyAdvertising(request, userContext.getUserId());
     }
 
-
     @Test
     void buyAdvertising_ShouldReturnInternalServerError_WhenServiceThrowsException() throws Exception {
-        // Arrange
+
         AdvertisingRequestDto request = new AdvertisingRequestDto(7, 1L); // 7 дней, пост ID = 1
 
         when(advertisingService.buyAdvertising(request, userContext.getUserId()))
                 .thenThrow(new RuntimeException("Internal server error"));
 
-        // Act & Assert
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/advertising/buy")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
