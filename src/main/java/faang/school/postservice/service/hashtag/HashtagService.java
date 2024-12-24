@@ -42,8 +42,8 @@ public class HashtagService {
         }
         Hashtag hashtag = new Hashtag();
         hashtag.setTitle(hashtagTitle);
-        post.getHashtags().add(hashtag);
-        postRepository.save(post);
+        hashtag.getPosts().add(post);
+        hashTagRepository.save(hashtag);
     }
 
     @Transactional(readOnly = true)
