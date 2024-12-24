@@ -28,6 +28,7 @@ spring:
       host: localhost
       channels:
         comment-channel: comment-topic
+        ban-channel: user-ban
 
 
 

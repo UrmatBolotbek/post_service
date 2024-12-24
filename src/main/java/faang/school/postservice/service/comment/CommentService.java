@@ -4,30 +4,40 @@ import faang.school.postservice.dto.comment.CommentRequestDto;
 import faang.school.postservice.dto.comment.CommentResponseDto;
 import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
 import faang.school.postservice.dto.events_dto.CommentEventDto;
+import faang.school.postservice.dto.user.UserForBanEventDto;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.publisher.CommentEventPublisher;
+import faang.school.postservice.publisher.UserBanEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.comment.CommentValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CommentService {
+
     private final CommentRepository commentRepository;
     private final CommentValidator commentValidator;
     private final CommentMapper commentMapper;
     private final CommentEventPublisher commentEventPublisher;
+    private final UserBanEventPublisher banPublisher;
     private final PostRepository postRepository;
+    private final ModerationDictionary moderationDictionary;
 
     public CommentResponseDto createComment(CommentRequestDto commentRequestDto) {
         commentValidator.validateAuthorExists(commentRequestDto.getAuthorId());
@@ -35,6 +45,10 @@ public class CommentService {
 
         Comment comment = commentMapper.toEntity(commentRequestDto);
         comment.setLikes(new ArrayList<>());
+
+        if (!moderationDictionary.isVerified(comment.getContent())) {
+            comment.setVerified(false);
+        }
 
         Comment savedComment = commentRepository.save(comment);
         CommentResponseDto commentResponseDto = commentMapper.toDto(savedComment);
@@ -82,4 +96,18 @@ public class CommentService {
         commentRepository.deleteById(commentId);
         log.info("Comment with id: {} deleted", commentId);
     }
+
+    @Async("moderationPool")
+    @Transactional
+    public void commenterBanner() {
+        commentRepository.getAuthorIdsForBanFromComments().forEach(authorId -> {
+            UserForBanEventDto eventDto = new UserForBanEventDto();
+            eventDto.setId(authorId);
+            banPublisher.publish(eventDto);
+            List<Comment> commentsFromUser = commentRepository.findAllByAuthorId(authorId);
+            commentsFromUser.forEach(comment -> comment.setVision(false));
+            log.info("Author with authorId {} is banned", authorId);
+        });
+    }
+
 }
