@@ -3,7 +3,7 @@ package faang.school.postservice.controller.advertising;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.adversting.AdDto;
-import faang.school.postservice.dto.adversting.AdvertisingRequest;
+import faang.school.postservice.dto.adversting.AdvertisingRequestDto;
 import faang.school.postservice.service.adversting.AdvertisingService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,7 +38,7 @@ public class AdvertisingControllerTest {
     @Test
     void buyAdvertising_ShouldReturnAdDto_WhenValidRequest() throws Exception {
         // Arrange
-        AdvertisingRequest request = new AdvertisingRequest(7, 1L); // 7 дней, пост ID = 1
+        AdvertisingRequestDto request = new AdvertisingRequestDto(7, 1L); // 7 дней, пост ID = 1
         AdDto adDto = new AdDto(
                 1L, // postId
                 2L, // userId
@@ -47,7 +47,7 @@ public class AdvertisingControllerTest {
                 LocalDateTime.now(), // startDate
                 LocalDateTime.now().plusDays(7) // endDate
         );
-        when(advertisingService.buyAdvertising(request)).thenReturn(adDto);
+        when(advertisingService.buyAdvertising(request, userContext.getUserId())).thenReturn(adDto);
 
         // Act & Assert
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/advertising/buy")
@@ -60,16 +60,16 @@ public class AdvertisingControllerTest {
                 .andExpect(MockMvcResultMatchers.jsonPath("$.duration").value(7))
                 .andExpect(MockMvcResultMatchers.jsonPath("$.price").value(100));
 
-        verify(advertisingService).buyAdvertising(request);
+        verify(advertisingService).buyAdvertising(request, userContext.getUserId());
     }
 
 
     @Test
     void buyAdvertising_ShouldReturnInternalServerError_WhenServiceThrowsException() throws Exception {
         // Arrange
-        AdvertisingRequest request = new AdvertisingRequest(7, 1L); // 7 дней, пост ID = 1
+        AdvertisingRequestDto request = new AdvertisingRequestDto(7, 1L); // 7 дней, пост ID = 1
 
-        when(advertisingService.buyAdvertising(request))
+        when(advertisingService.buyAdvertising(request, userContext.getUserId()))
                 .thenThrow(new RuntimeException("Internal server error"));
 
         // Act & Assert
@@ -77,7 +77,7 @@ public class AdvertisingControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isInternalServerError());
-        verify(advertisingService).buyAdvertising(request);
+        verify(advertisingService).buyAdvertising(request, userContext.getUserId());
     }
 
 }

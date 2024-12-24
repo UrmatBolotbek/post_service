@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class AdvertisingRequest {
+public class AdvertisingRequestDto {
     @Min(1)
     private int days;
     @NotNull
