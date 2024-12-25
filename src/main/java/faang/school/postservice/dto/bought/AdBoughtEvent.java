@@ -13,9 +13,9 @@ import java.time.LocalDateTime;
 public class AdBoughtEvent {
     private Long postId;
     private Long userId;
-    private Double paymentAmount;
+    private int paymentAmount;
     private Integer duration;
-    private AdverstisingPeriod period;
     private LocalDateTime purchaseTime;
+    private Long ownerId;
 }
 

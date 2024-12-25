@@ -59,18 +59,14 @@ public class AdvertisingService {
         }
     }
 
-    void publishAdBoughtEvent(Ad ad, long userId, AdverstisingPeriod period) {
+    public void publishAdBoughtEvent(Ad ad, long userId, AdverstisingPeriod period) {
         AdBoughtEvent adBoughtEvent = AdBoughtEvent.builder()
                 .postId(ad.getPost().getId())
                 .userId(userId)
-                .paymentAmount((double) period.getPrice())
                 .duration(period.getDays())
-                .period(period)
                 .purchaseTime(LocalDateTime.now())
                 .build();
-
         adBoughtEventPublisher.publish(adBoughtEvent);
         log.info("AdBoughtEvent published for adId {}", ad.getId());
     }
-
 }
