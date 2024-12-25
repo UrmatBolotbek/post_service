@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CommentEventPublisher extends EventPublisherAbstract<CommentEventDto> {
 
-    @Value("${spring.data.redis.channels.comment-notification-channel}")
+    @Value("${spring.data.redis.channels.comment-channel}")
     private String channelName;
 
     public CommentEventPublisher(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper) {

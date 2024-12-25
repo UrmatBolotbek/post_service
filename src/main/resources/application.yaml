@@ -29,9 +29,23 @@ spring:
       channels:
         comment-notification-channel: comment-topic
         ad-bought-channel: ad-bought-topic
+        comment-channel: comment-topic
+        ban-channel: user-ban
+
+
+
 
 server:
   port: 8081
+
+scheduling:
+  cron: "0 0 12 * * *"
+
+spelling:
+  key: c2b61bcbe1msh7baed25073c44a3p111bcfjsn7841c9808baa
+  endpoint: https://jspell-checker.p.rapidapi.com/check
+  content: application/json
+  host: jspell-checker.p.rapidapi.com
 
 logging:
   level:

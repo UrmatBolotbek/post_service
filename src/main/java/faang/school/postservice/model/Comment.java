@@ -36,6 +36,12 @@ public class Comment {
     @JoinColumn(name = "post_id", nullable = false)
     private Post post;
 
+    @Column(name = "verified", nullable = false)
+    private boolean verified;
+
+    @Column(name = "vision")
+    private boolean vision;
+
     @CreationTimestamp
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "created_at")

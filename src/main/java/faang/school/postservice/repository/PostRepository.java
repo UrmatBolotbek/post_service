@@ -24,6 +24,9 @@ public interface PostRepository extends CrudRepository<Post, Long> {
     @Query("SELECT p FROM Post p WHERE p.published = false AND p.deleted = false AND p.scheduledAt <= CURRENT_TIMESTAMP")
     List<Post> findReadyToPublish();
 
+    @Query("SELECT p FROM Post p WHERE p.published = false")
+    List<Post> findByPublishedFalse();
+
     default Post getPostById(Long id) {
         return findById(id).orElseThrow(() -> new EntityNotFoundException("Post with id " + id + " not found"));
     }
