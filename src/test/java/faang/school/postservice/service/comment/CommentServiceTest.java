@@ -5,12 +5,15 @@ import faang.school.postservice.dto.comment.CommentResponseDto;
 import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
 import faang.school.postservice.dto.events_dto.CommentEventDto;
 import faang.school.postservice.dto.user.UserDto;
+import faang.school.postservice.dto.user.UserForBanEventDto;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.publisher.CommentEventPublisher;
+import faang.school.postservice.publisher.UserBanEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.comment.CommentValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +29,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -47,6 +51,12 @@ class CommentServiceTest {
 
     @Mock
     private CommentEventPublisher commentEventPublisher;
+
+    @Mock
+    private ModerationDictionary moderationDictionary;
+
+    @Mock
+    private UserBanEventPublisher banPublisher;
 
     @InjectMocks
     private CommentService commentService;
@@ -89,6 +99,7 @@ class CommentServiceTest {
         when(commentRepository.save(comment)).thenReturn(comment);
         when(commentMapper.toDto(comment)).thenReturn(expectedResponse);
         when(postRepository.getPostById(VALID_POST_ID)).thenReturn(post);
+        when(moderationDictionary.isVerified(comment.getContent())).thenReturn(true);
 
         CommentResponseDto actualResponse = commentService.createComment(commentRequestDto);
 
@@ -170,5 +181,17 @@ class CommentServiceTest {
 
         verify(commentRepository).deleteById(commentId);
         verifyNoMoreInteractions(commentRepository);
+    }
+
+    @Test
+    void testCommenterBanner() {
+        UserForBanEventDto userForBanEventDto = new UserForBanEventDto();
+        userForBanEventDto.setId(24L);
+
+        when(commentRepository.getAuthorIdsForBanFromComments()).thenReturn(List.of(24L));
+
+        commentService.commenterBanner();
+        verify(banPublisher).publish(userForBanEventDto);
+        verify(commentRepository).findAllByAuthorId(24L);
     }
 }
