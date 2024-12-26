@@ -69,6 +69,7 @@ public class PostService {
         post.setLikes(new ArrayList<>());
         post.setComments(new ArrayList<>());
         post.setResources(new ArrayList<>());
+        post.setHashtags(new ArrayList<>());
 
         post = postRepository.save(post);
 

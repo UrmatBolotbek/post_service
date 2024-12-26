@@ -31,8 +31,6 @@ spring:
         ban-channel: user-ban
 
 
-
-
 server:
   port: 8081
 

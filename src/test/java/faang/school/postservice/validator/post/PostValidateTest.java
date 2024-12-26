@@ -49,14 +49,14 @@ public class PostValidateTest {
         Post existingPost = new Post();
         existingPost.setId(postId);
         existingPost.setContent("Sample content");
-        when(postRepository.findById(postId)).thenReturn(Optional.of(existingPost));
+        when(postRepository.getPostById(postId)).thenReturn(existingPost);
 
         Post result = postValidator.validateAndGetPostById(postId);
 
         assertNotNull(result);
         assertEquals(postId, result.getId());
         assertEquals("Sample content", result.getContent());
-        verify(postRepository).findById(postId);
+        verify(postRepository).getPostById(postId);
     }
 
     @Test
