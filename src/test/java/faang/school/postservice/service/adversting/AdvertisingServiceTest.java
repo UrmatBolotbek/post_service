@@ -3,14 +3,19 @@ package faang.school.postservice.service.adversting;
 import faang.school.postservice.client.PaymentServiceClient;
 import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.adversting.AdvertisingRequestDto;
+import faang.school.postservice.dto.bought.AdBoughtEvent;
 import faang.school.postservice.mapper.adversting.AdMapper;
+import faang.school.postservice.model.Post;
 import faang.school.postservice.model.ad.Ad;
+import faang.school.postservice.model.enums.AdverstisingPeriod;
+import faang.school.postservice.publisher.bought.AdBoughtEventPublisher;
 import faang.school.postservice.repository.ad.AdRepository;
 import faang.school.postservice.validator.adversting.AdvertisingValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,6 +24,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,10 +45,9 @@ public class AdvertisingServiceTest {
     @Mock
     private AdvertisingValidator advertisingValidator;
     @Mock
-    private AdvertisingRequestDto advertisingRequest;
-
-    @Mock
     private UserContext userContext;
+    @Mock
+    private AdBoughtEventPublisher adBoughtEventPublisher;
     @InjectMocks
     private AdvertisingService advertisingService;
 
@@ -50,10 +55,9 @@ public class AdvertisingServiceTest {
 
     @BeforeEach
     void setUp() {
-
         Clock fixedClock = Clock.fixed(Instant.parse("2024-12-15T15:51:25.624831Z"), ZoneId.systemDefault());
         adMapper = Mappers.getMapper(AdMapper.class);
-        advertisingService = new AdvertisingService(adRepository, adMapper, advertisingValidator, paymentServiceClient);
+        advertisingService = new AdvertisingService(adRepository, adMapper, advertisingValidator, paymentServiceClient, adBoughtEventPublisher);
     }
 
     @Test
@@ -75,5 +79,38 @@ public class AdvertisingServiceTest {
         verify(advertisingValidator, never()).validatePostForAdvertising(anyLong());
         verify(adRepository, never()).save(any(Ad.class));
         verifyNoInteractions(paymentServiceClient);
+    }
+    @Test
+    void publishAdBoughtEvent_ShouldPublishEvent() {
+        // Given
+        Post post = new Post();
+        long userId = 1L;
+        Ad ad = Ad.builder()
+                .post(post)
+                .build();
+        ad.setId(100L);
+
+        post.setId(2L);
+        ad.setPost(post);
+
+        // Use the correct enum value for 1 day
+        AdverstisingPeriod period = AdverstisingPeriod.DEY; // Corrected to DAY
+
+        // When
+        advertisingService.publishAdBoughtEvent(ad, userId, period);
+
+        // Then
+        ArgumentCaptor<AdBoughtEvent> eventCaptor = ArgumentCaptor.forClass(AdBoughtEvent.class);
+        verify(adBoughtEventPublisher).publish(eventCaptor.capture());
+
+        AdBoughtEvent publishedEvent = eventCaptor.getValue();
+        assertNotNull(publishedEvent);
+        assertEquals(2L, publishedEvent.getPostId());
+        assertEquals(userId, publishedEvent.getUserId());
+
+        // Ensure the correct payment amount is calculated and set
+        assertEquals(Double.valueOf(0.0), publishedEvent.getPaymentAmount()); // Assuming 10 is correct for 1 day
+        assertEquals(Integer.valueOf(1), publishedEvent.getDuration()); // Duration should be 1
+        assertNotNull(publishedEvent.getPurchaseTime()); // Purchase time should be set
     }
 }

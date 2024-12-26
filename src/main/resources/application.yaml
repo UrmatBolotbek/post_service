@@ -27,6 +27,8 @@ spring:
       port: 6379
       host: localhost
       channels:
+        comment-notification-channel: comment-topic
+        ad-bought-channel: ad-bought-topic
         comment-channel: comment-topic
         ban-channel: user-ban
 
@@ -46,7 +48,6 @@ spelling:
 logging:
   level:
     root: info
-
 
 moderation-scheduler:
   cron: 0 0 * * * *
