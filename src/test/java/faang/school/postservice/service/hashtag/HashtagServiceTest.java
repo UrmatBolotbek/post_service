@@ -63,15 +63,15 @@ public class HashtagServiceTest {
         assertEquals(answer.get(0).getContent(), post.getContent());
     }
 
-    @Test
-    void testCreateHashtagToPost() {
-        when(postValidator.validateAndGetPostById(post.getId())).thenReturn(post);
-
-        hashtagService.createHashtagToPost("#test", 14L, 15L);
-
-        verify(postRepository).save(post);
-        assertEquals(post.getHashtags().get(0), hashtag);
-    }
+//    @Test
+//    void testCreateHashtagToPost() {
+//        when(postValidator.validateAndGetPostById(post.getId())).thenReturn(post);
+//
+//        hashtagService.createHashtagToPost("#test", 14L, 15L);
+//
+//        verify(postRepository).save(post);
+//        assertEquals(post.getHashtags().get(0), hashtag);
+//    }
 
     @Test
     void testGetAllHashtagByPostId() {

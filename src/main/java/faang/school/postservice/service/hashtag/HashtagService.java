@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -40,10 +41,19 @@ public class HashtagService {
         if (!hashtagTitle.startsWith("#")) {
             hashtagTitle = "#" + hashtagTitle;
         }
-        Hashtag hashtag = new Hashtag();
-        hashtag.setTitle(hashtagTitle);
-        hashtag.getPosts().add(post);
-        hashTagRepository.save(hashtag);
+        Optional<Hashtag> hashtag = hashTagRepository.findByHashtagTitle(hashtagTitle);
+        if (hashtag.isEmpty()) {
+            Hashtag newHashtag = new Hashtag();
+            newHashtag.setTitle(hashtagTitle);
+            newHashtag.getPosts().add(post);
+            hashTagRepository.save(newHashtag);
+        } else {
+            Hashtag hashtagFromRepository = hashtag.get();
+            postValidator.validatePostHatThisHashtag(post, hashtagFromRepository);
+            hashtagFromRepository.getPosts().add(post);
+            hashTagRepository.save(hashtagFromRepository);
+        }
+
     }
 
     @Transactional(readOnly = true)
