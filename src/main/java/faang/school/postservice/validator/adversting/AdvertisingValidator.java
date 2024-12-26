@@ -1,19 +1,19 @@
 package faang.school.postservice.validator.adversting;
 
-import faang.school.postservice.client.PaymentServiceClient;
 import faang.school.postservice.dto.adversting.AdvertisingRequestDto;
 import faang.school.postservice.model.ad.Ad;
 import faang.school.postservice.repository.PostRepository;
 import faang.school.postservice.repository.ad.AdRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
 @AllArgsConstructor
+@Component
 public class AdvertisingValidator {
     private final AdRepository adRepository;
     private final PostRepository postRepository;
-    private final PaymentServiceClient paymentServiceClient;
 
     public void validatePostForAdvertising(long postId) {
         if (!postRepository.existsById(postId)) {

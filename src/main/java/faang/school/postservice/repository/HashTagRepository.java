@@ -20,6 +20,6 @@ public interface HashTagRepository extends JpaRepository<Hashtag, Long> {
             """)
     List<Post> findAllByHashtagTitle(String hashtagTitle);
 
-    Optional<Hashtag> findByHashtagTitle(String hashtagTitle);
+    Optional<Hashtag> findByTitle(String title);
 
 }

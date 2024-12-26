@@ -13,6 +13,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,7 +23,6 @@ import java.util.Optional;
 public class HashtagService {
 
     private final HashTagRepository hashTagRepository;
-    private final PostRepository postRepository;
     private final PostValidator postValidator;
     private final PostMapper postMapper;
 
@@ -41,9 +41,10 @@ public class HashtagService {
         if (!hashtagTitle.startsWith("#")) {
             hashtagTitle = "#" + hashtagTitle;
         }
-        Optional<Hashtag> hashtag = hashTagRepository.findByHashtagTitle(hashtagTitle);
+        Optional<Hashtag> hashtag = hashTagRepository.findByTitle(hashtagTitle);
         if (hashtag.isEmpty()) {
             Hashtag newHashtag = new Hashtag();
+            newHashtag.setPosts(new ArrayList<>());
             newHashtag.setTitle(hashtagTitle);
             newHashtag.getPosts().add(post);
             hashTagRepository.save(newHashtag);
@@ -53,7 +54,6 @@ public class HashtagService {
             hashtagFromRepository.getPosts().add(post);
             hashTagRepository.save(hashtagFromRepository);
         }
-
     }
 
     @Transactional(readOnly = true)

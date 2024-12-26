@@ -10,6 +10,8 @@ import faang.school.postservice.validator.post.PostValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -17,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
@@ -25,13 +28,15 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 public class HashtagServiceTest {
 
+    @Captor
+    private ArgumentCaptor<Hashtag> hashtagCaptor;
+
     @InjectMocks
     private HashtagService hashtagService;
 
     @Mock
     private HashTagRepository hashTagRepository;
-    @Mock
-    private PostRepository postRepository;
+
     @Mock
     private PostValidator postValidator;
     @Spy
@@ -43,6 +48,7 @@ public class HashtagServiceTest {
     @BeforeEach
     public void setUp() {
         hashtag = Hashtag.builder()
+                .posts(new ArrayList<>())
                 .title("#test")
                 .build();
         post = Post.builder()
@@ -63,15 +69,16 @@ public class HashtagServiceTest {
         assertEquals(answer.get(0).getContent(), post.getContent());
     }
 
-//    @Test
-//    void testCreateHashtagToPost() {
-//        when(postValidator.validateAndGetPostById(post.getId())).thenReturn(post);
-//
-//        hashtagService.createHashtagToPost("#test", 14L, 15L);
-//
-//        verify(postRepository).save(post);
-//        assertEquals(post.getHashtags().get(0), hashtag);
-//    }
+    @Test
+    void testCreateHashtagToPost() {
+        when(postValidator.validateAndGetPostById(post.getId())).thenReturn(post);
+        when(hashTagRepository.findByTitle("#test")).thenReturn(Optional.empty());
+
+        hashtagService.createHashtagToPost("#test", 14L, 15L);
+
+        verify(hashTagRepository).save(hashtagCaptor.capture());
+        assertEquals(hashtagCaptor.getValue().getPosts().get(0), post);
+    }
 
     @Test
     void testGetAllHashtagByPostId() {
