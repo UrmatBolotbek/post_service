@@ -26,6 +26,7 @@ spring:
     redis:
       port: 6379
       host: localhost
+      time-to-live: 86400
       channels:
         comment-notification-channel: comment-topic
         ad-bought-channel: ad-bought-topic
