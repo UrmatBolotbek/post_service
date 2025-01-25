@@ -1,4 +1,4 @@
-package faang.school.postservice.repository.cache;
+package faang.school.postservice.repository.redis;
 
 import faang.school.postservice.model.cache.PostCache;
 import org.springframework.data.keyvalue.repository.KeyValueRepository;

@@ -4,7 +4,7 @@ import faang.school.postservice.client.UserServiceClient;
 import faang.school.postservice.dto.user.UserDto;
 import faang.school.postservice.mapper.cache.AuthorCacheMapper;
 import faang.school.postservice.model.cache.AuthorCache;
-import faang.school.postservice.repository.cache.AuthorCacheRepository;
+import faang.school.postservice.repository.redis.AuthorCacheRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

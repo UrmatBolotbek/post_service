@@ -17,7 +17,7 @@ public class EventListeners {
     private final AuthorCacheService authorCacheService;
     private final PostCacheService postCacheService;
 
-    @KafkaListener(topics = "${spring.kafka.topic-name.author-cashed:author-cashed}")
+    @KafkaListener(topics = "${spring.kafka.topic-name.author-cashed:author-cashed}", groupId = "${spring.kafka.consumer.group-id}")
     public void authorCachedListener(AuthorCachedEvent event, Acknowledgment acknowledgment) {
         try {
             authorCacheService.saveAuthorCache(event.getAuthorId());
@@ -29,7 +29,7 @@ public class EventListeners {
         }
     }
 
-    @KafkaListener(topics = "${spring.kafka.topic-name.author-cashed:author-cashed}")
+    @KafkaListener(topics = "${spring.kafka.topic-name.post-cashed:post-cashed}", groupId = "${spring.kafka.consumer.group-id}")
     public void postCachedListener(PostResponseDto event, Acknowledgment acknowledgment) {
         try {
             postCacheService.savePostCache(event);

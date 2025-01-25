@@ -15,7 +15,7 @@ public class EventProducer {
     @Value("${spring.kafka.topic-name.post-cached:post-cashed}")
     private String postCashedTopic;
 
-    private final KafkaTemplate<Long, Object> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     public void sendAuthorCashedEvent(AuthorCachedEvent event) {
         kafkaTemplate.send(authorTopic, event);

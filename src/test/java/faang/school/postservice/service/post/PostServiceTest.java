@@ -5,6 +5,7 @@ import faang.school.postservice.dto.post.PostFilterDto;
 import faang.school.postservice.dto.post.PostRequestDto;
 import faang.school.postservice.dto.post.PostResponseDto;
 import faang.school.postservice.dto.post.PostUpdateDto;
+import faang.school.postservice.kafka.EventsManager;
 import faang.school.postservice.mapper.post.PostMapper;
 import faang.school.postservice.model.Like;
 import faang.school.postservice.model.Post;
@@ -61,7 +62,8 @@ public class PostServiceTest {
     private List<PostFilters> postFilters;
     @Mock
     private ModerationDictionary moderationDictionary;
-
+    @Mock
+    private EventsManager eventsManager;
     @InjectMocks
     private PostService postService;
 
@@ -69,7 +71,6 @@ public class PostServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Используем lenient() для необязательной стабации void метода execute(...)
         lenient().doAnswer(invocation -> {
             Runnable r = invocation.getArgument(0);
             r.run();
