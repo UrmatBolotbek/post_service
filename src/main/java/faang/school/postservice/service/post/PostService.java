@@ -6,6 +6,7 @@ import faang.school.postservice.dto.post.PostRequestDto;
 import faang.school.postservice.dto.post.PostResponseDto;
 import faang.school.postservice.dto.post.PostUpdateDto;
 import faang.school.postservice.dto.resource.ResourceResponseDto;
+import faang.school.postservice.kafka.EventsManager;
 import faang.school.postservice.mapper.post.PostMapper;
 import faang.school.postservice.mapper.resource.ResourceMapper;
 import faang.school.postservice.model.Post;
@@ -58,6 +59,7 @@ public class PostService {
     private final PostValidator postValidator;
     private final List<PostFilters> postFilters;
     private final ModerationDictionary moderationDictionary;
+    private final EventsManager eventsManager;
 
     @Transactional
     public PostResponseDto create(PostRequestDto requestDto, List<MultipartFile> images, List<MultipartFile> audio) {
@@ -113,7 +115,12 @@ public class PostService {
         post.setPublished(true);
         post.setDeleted(false);
         post = postRepository.save(post);
-        return postMapper.toDto(post);
+        PostResponseDto postDto = postMapper.toDto(post);
+
+        eventsManager.generateAndSendAuthorCachedEvent(postDto.getAuthorId());
+        eventsManager.generateAndSendPostCachedEvent(postDto);
+
+        return postDto;
     }
 
     @Transactional
