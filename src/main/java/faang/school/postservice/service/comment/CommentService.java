@@ -12,6 +12,7 @@ import faang.school.postservice.publisher.CommentEventPublisher;
 import faang.school.postservice.publisher.UserBanEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.service.news_feed.PostCacheService;
 import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.comment.CommentValidator;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class CommentService {
     private final PostRepository postRepository;
     private final ModerationDictionary moderationDictionary;
     private final EventsManager eventsManager;
+    private final PostCacheService postCacheService;
 
     public CommentResponseDto createComment(CommentRequestDto commentRequestDto) {
         commentValidator.validateAuthorExists(commentRequestDto.getAuthorId());
@@ -59,6 +61,8 @@ public class CommentService {
         log.info("Notification about new comment sent to notification service {}", commentEventDto);
 
         eventsManager.generateAndSendAuthorCachedEvent(commentResponseDto.getAuthorId());
+
+        postCacheService.addComment(commentRequestDto.getPostId(), commentResponseDto);
 
         return commentResponseDto;
     }
@@ -112,5 +116,4 @@ public class CommentService {
             log.info("Author with authorId {} is banned", authorId);
         });
     }
-
 }

@@ -12,6 +12,7 @@ import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.LikeRepository;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.service.news_feed.PostCacheService;
 import faang.school.postservice.validator.comment.CommentValidator;
 import faang.school.postservice.validator.like.LikeValidator;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class LikeService {
     private final LikeValidator validator;
     private final UserServiceClient userServiceClient;
     private final CommentValidator commentValidator;
+    private final PostCacheService postCacheService;
 
     private static final int BATCH_SIZE = 100;
 
@@ -54,6 +56,9 @@ public class LikeService {
         post.getLikes().add(like);
         postRepository.save(post);
         log.info("The post {} was successfully saved in DB", post.getId());
+
+        postCacheService.incrementLikes(postId);
+
         return likeMapper.toResponseLikeDto(like);
     }
 
@@ -70,7 +75,6 @@ public class LikeService {
         deleteLike(post.getLikes(), userId);
         postRepository.save(post);
         log.info("The post {} was successfully saved in DB", post.getId());
-
     }
 
     public LikeResponseDto commentLike(LikeRequestDto acceptanceLikeDto, long commentId) {
@@ -88,6 +92,7 @@ public class LikeService {
         comment.getLikes().add(like);
         commentRepository.save(comment);
         log.info("The comment {} was successfully saved in DB", comment.getId());
+
         return likeMapper.toResponseLikeDto(like);
     }
 
@@ -104,6 +109,7 @@ public class LikeService {
         deleteLike(comment.getLikes(), userId);
         commentRepository.save(comment);
         log.info("The comment {} was successfully saved in DB", comment.getId());
+
     }
 
     private Post getPost(long postId) {
@@ -126,7 +132,6 @@ public class LikeService {
         likes.removeIf(like -> like.getUserId().equals(userId));
     }
 
-
     public List<UserDto> getUsersByPostId(long postId) {
         List<Long> userIds = likeRepository.findByPostId(postId).stream()
                 .map(Like::getUserId)
@@ -135,13 +140,11 @@ public class LikeService {
         if (userIds.isEmpty()) {
             return List.of();
         }
-
         return fetchUsersInBatches(userIds);
     }
 
     public List<UserDto> getUsersByCommentId(long commentId) {
         commentValidator.validateCommentExists(commentId);
-
         List<Long> userIds = likeRepository.findByCommentId(commentId).stream()
                 .map(Like::getUserId)
                 .toList();
@@ -149,7 +152,6 @@ public class LikeService {
         if (userIds.isEmpty()) {
             return List.of();
         }
-
         return fetchUsersInBatches(userIds);
     }
 
@@ -164,7 +166,6 @@ public class LikeService {
     private List<UserDto> fetchUsersInBatches(List<Long> userIds) {
         List<List<Long>> batches = splitIntoBatches(userIds, BATCH_SIZE);
         List<UserDto> allUsers = new ArrayList<>();
-
         for (List<Long> batch : batches) {
             try {
                 allUsers.addAll(userServiceClient.getUsersByIds(batch));
@@ -174,5 +175,4 @@ public class LikeService {
         }
         return allUsers;
     }
-
 }

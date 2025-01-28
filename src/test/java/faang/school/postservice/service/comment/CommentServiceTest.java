@@ -14,6 +14,7 @@ import faang.school.postservice.publisher.CommentEventPublisher;
 import faang.school.postservice.publisher.UserBanEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.service.news_feed.PostCacheService;
 import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.comment.CommentValidator;
 import org.junit.jupiter.api.Test;
@@ -30,36 +31,29 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CommentServiceTest {
 
     @Mock
     private CommentRepository commentRepository;
-
     @Mock
     private CommentValidator commentValidator;
-
     @Mock
     private CommentMapper commentMapper;
-
     @Mock
     private PostRepository postRepository;
-
     @Mock
     private CommentEventPublisher commentEventPublisher;
-
     @Mock
     private ModerationDictionary moderationDictionary;
-
     @Mock
     private UserBanEventPublisher banPublisher;
-
     @Mock
     private EventsManager eventsManager;
+    @Mock
+    private PostCacheService postCacheService;
 
     @InjectMocks
     private CommentService commentService;
@@ -125,6 +119,9 @@ class CommentServiceTest {
         assertEquals("Test Content", actualEvent.getCommentContent());
 
         assertEquals(expectedResponse, actualResponse);
+
+        verify(postCacheService).addComment(VALID_POST_ID, expectedResponse);
+        verify(eventsManager).generateAndSendAuthorCachedEvent(expectedResponse.getAuthorId());
     }
 
     @Test
@@ -147,6 +144,7 @@ class CommentServiceTest {
         verify(commentRepository).save(existingComment);
         assertEquals(UPDATED_CONTENT, existingComment.getContent());
         assertEquals(expectedOutput, actualOutput);
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -167,13 +165,14 @@ class CommentServiceTest {
         CommentResponseDto dto2 = new CommentResponseDto();
 
         when(commentRepository.findAllByPostId(postId)).thenReturn(comments);
-        when(commentMapper.toDto(comments)).thenReturn(List.of(dto2, dto1)); // In reversed order
+        when(commentMapper.toDto(comments)).thenReturn(List.of(dto2, dto1));
 
         List<CommentResponseDto> actualOutput = commentService.getCommentsByPostId(postId);
 
         verify(commentValidator).validatePostExists(postId);
         comments.sort(Comparator.comparing(Comment::getCreatedAt).reversed());
         assertEquals(List.of(dto2, dto1), actualOutput);
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -184,6 +183,7 @@ class CommentServiceTest {
 
         verify(commentRepository).deleteById(commentId);
         verifyNoMoreInteractions(commentRepository);
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -196,5 +196,6 @@ class CommentServiceTest {
         commentService.commenterBanner();
         verify(banPublisher).publish(userForBanEventDto);
         verify(commentRepository).findAllByAuthorId(24L);
+        verifyNoInteractions(postCacheService);
     }
 }

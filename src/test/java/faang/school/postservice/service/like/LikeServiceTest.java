@@ -4,24 +4,21 @@ import faang.school.postservice.client.UserServiceClient;
 import faang.school.postservice.dto.like.LikeRequestDto;
 import faang.school.postservice.dto.user.UserDto;
 import faang.school.postservice.exception.DataValidationException;
+import faang.school.postservice.mapper.like.LikeMapperImpl;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Like;
-import faang.school.postservice.mapper.like.LikeMapperImpl;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.CommentRepository;
 import faang.school.postservice.repository.LikeRepository;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.service.news_feed.PostCacheService;
 import faang.school.postservice.validator.comment.CommentValidator;
 import faang.school.postservice.validator.like.LikeValidator;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Spy;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.ArrayList;
@@ -30,10 +27,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class LikeServiceTest {
@@ -58,7 +52,8 @@ public class LikeServiceTest {
     private UserServiceClient userServiceClient;
     @Mock
     private CommentValidator commentValidator;
-
+    @Mock
+    private PostCacheService postCacheService;
 
     private static final int BATCH_SIZE = 100;
 
@@ -81,7 +76,6 @@ public class LikeServiceTest {
         like = new Like();
         like.setId(1L);
         like.setUserId(1L);
-
     }
 
     @Test
@@ -93,31 +87,34 @@ public class LikeServiceTest {
 
         verify(likeRepository).save(likeCaptor.capture());
         verify(postRepository).save(post);
-        Like like = likeCaptor.getValue();
+        Like likeCaptured = likeCaptor.getValue();
+        assertEquals(likeCaptured.getPost(), post);
+        assertEquals(post.getLikes(), List.of(likeCaptured));
 
-        assertEquals(like.getPost(), post);
-        assertEquals(post.getLikes(), List.of(like));
+        verify(postCacheService).incrementLikes(5L);
     }
 
     @Test
     public void testPostLikeFailure() {
         when(postRepository.findById(5L)).thenReturn(Optional.empty());
         assertThrows(DataValidationException.class, () -> likeService.postLike(acceptanceLikeDto, 5L));
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
     public void testCommentLikeFailure() {
         when(commentRepository.findById(1L)).thenReturn(Optional.empty());
         assertThrows(DataValidationException.class, () -> likeService.commentLike(acceptanceLikeDto, 1L));
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
     public void testPostLikeWithPostHatLike() {
         when(postRepository.findById(5L)).thenReturn(Optional.ofNullable(post));
         when(validator.validatePostHasLike(5L, 1L)).thenReturn(false);
-
         assertThrows(DataValidationException.class,
                 () -> likeService.postLike(acceptanceLikeDto, 5L));
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -129,19 +126,19 @@ public class LikeServiceTest {
 
         verify(likeRepository).save(likeCaptor.capture());
         verify(commentRepository).save(comment);
-        Like like = likeCaptor.getValue();
-
-        assertEquals(like.getComment(), comment);
-        assertEquals(comment.getLikes(), List.of(like));
+        Like likeCaptured = likeCaptor.getValue();
+        assertEquals(likeCaptured.getComment(), comment);
+        assertEquals(comment.getLikes(), List.of(likeCaptured));
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
     public void testCommentLikeWithCommentHatLike() {
         when(commentRepository.findById(10L)).thenReturn(Optional.ofNullable(comment));
         when(validator.validateCommentHasLike(10L, 1L)).thenReturn(false);
-
         assertThrows(DataValidationException.class,
                 () -> likeService.commentLike(acceptanceLikeDto, 10L));
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -151,8 +148,8 @@ public class LikeServiceTest {
         when(validator.validatePostHasLike(5L, 1L)).thenReturn(false);
         likeService.deleteLikeFromPost(acceptanceLikeDto, 5L);
         verify(likeRepository).deleteByPostIdAndUserId(post.getId(), 1L);
-
         assertTrue(post.getLikes().isEmpty());
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -161,6 +158,7 @@ public class LikeServiceTest {
         when(validator.validatePostHasLike(5L, 1L)).thenReturn(true);
         assertThrows(DataValidationException.class,
                 () -> likeService.deleteLikeFromPost(acceptanceLikeDto, 5L));
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -171,6 +169,7 @@ public class LikeServiceTest {
         likeService.deleteLikeFromComment(acceptanceLikeDto, 10L);
         verify(likeRepository).deleteByCommentIdAndUserId(comment.getId(), 1L);
         assertTrue(comment.getLikes().isEmpty());
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -179,6 +178,7 @@ public class LikeServiceTest {
         when(validator.validateCommentHasLike(10L, 1L)).thenReturn(true);
         assertThrows(DataValidationException.class,
                 () -> likeService.deleteLikeFromComment(acceptanceLikeDto, 10L));
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -207,6 +207,7 @@ public class LikeServiceTest {
 
         verify(likeRepository).findByPostId(5L);
         verify(userServiceClient).getUsersByIds(userIds);
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
@@ -219,6 +220,7 @@ public class LikeServiceTest {
                 Like.builder().userId(2L).post(post).build()
         );
         List<Long> userIds = List.of(1L, 2L);
+
         when(likeRepository.findByPostId(5L)).thenReturn(likes);
         when(userServiceClient.getUsersByIds(anyList())).thenThrow(new RuntimeException("Service unavailable"));
 
@@ -227,15 +229,19 @@ public class LikeServiceTest {
         assertTrue(result.isEmpty());
         verify(likeRepository).findByPostId(5L);
         verify(userServiceClient).getUsersByIds(userIds);
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
     void testGetUsersByCommentId_Success() {
         long commentId = 10L;
 
+        Comment c = new Comment();
+        c.setId(commentId);
+
         List<Like> likes = List.of(
-                Like.builder().userId(1L).comment(comment).build(),
-                Like.builder().userId(2L).comment(comment).build()
+                Like.builder().userId(1L).comment(c).build(),
+                Like.builder().userId(2L).comment(c).build()
         );
         List<Long> userIds = List.of(1L, 2L);
         List<UserDto> userDtos = List.of(
@@ -255,12 +261,12 @@ public class LikeServiceTest {
         verify(commentValidator).validateCommentExists(commentId);
         verify(likeRepository).findByCommentId(commentId);
         verify(userServiceClient).getUsersByIds(userIds);
+        verifyNoInteractions(postCacheService);
     }
 
     @Test
     void testGetUsersByCommentId_CommentNotFound() {
         long commentId = 10L;
-
         doThrow(new EntityNotFoundException("Comment with id " + commentId + " does not exist."))
                 .when(commentValidator).validateCommentExists(commentId);
 
@@ -271,6 +277,6 @@ public class LikeServiceTest {
         verify(commentValidator).validateCommentExists(commentId);
         verifyNoInteractions(likeRepository);
         verifyNoInteractions(userServiceClient);
+        verifyNoInteractions(postCacheService);
     }
 }
-

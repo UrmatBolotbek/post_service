@@ -12,6 +12,7 @@ import faang.school.postservice.mapper.resource.ResourceMapper;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.model.Resource;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.service.news_feed.PostCacheService;
 import faang.school.postservice.service.post.filter.PostFilters;
 import faang.school.postservice.service.resource.ResourceService;
 import faang.school.postservice.service.s3.S3Service;
@@ -60,6 +61,7 @@ public class PostService {
     private final List<PostFilters> postFilters;
     private final ModerationDictionary moderationDictionary;
     private final EventsManager eventsManager;
+    private final PostCacheService postCacheService;
 
     @Transactional
     public PostResponseDto create(PostRequestDto requestDto, List<MultipartFile> images, List<MultipartFile> audio) {
@@ -102,9 +104,16 @@ public class PostService {
 
     @Transactional(readOnly = true)
     public PostResponseDto getPost(Long postId) {
+        PostResponseDto cached = postCacheService.getPostFromCacheOrDb(postId);
+        if (cached != null && cached.getId() != null) {
+            postCacheService.incrementViews(postId);
+            return cached;
+        }
         Post post = postRepository.getPostById(postId);
         PostResponseDto responseDto = postMapper.toDto(post);
+        postCacheService.savePostCache(responseDto);
         populateResourceUrls(responseDto, post);
+        postCacheService.incrementViews(postId);
         return responseDto;
     }
 
@@ -118,6 +127,7 @@ public class PostService {
         PostResponseDto postDto = postMapper.toDto(post);
 
         eventsManager.generateAndSendAuthorCachedEvent(postDto.getAuthorId());
+        postCacheService.savePostCache(postDto);
         eventsManager.generateAndSendPostCachedEvent(postDto);
 
         return postDto;
