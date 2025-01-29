@@ -27,6 +27,7 @@ spring:
       port: 6379
       host: localhost
       time-to-live: 86400
+      max-comments: 3
       channels:
         comment-notification-channel: comment-topic
         ad-bought-channel: ad-bought-topic
