@@ -1,5 +1,6 @@
 package faang.school.postservice.dto.post;
 
+import faang.school.postservice.dto.comment.CommentResponseDto;
 import faang.school.postservice.dto.resource.ResourceResponseDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,8 +22,9 @@ public class PostResponseDto {
     private Long projectId;
     private LocalDateTime createdAt;
     private List<Long> likeIds;
-    private Long countLikes;
-    private List<Long> commentIds;
+    private Integer countLikes;
+    private Integer views;
+    private List<CommentResponseDto> comments;
     private LocalDateTime scheduledAt;
     private LocalDateTime publishedAt;
     private LocalDateTime updatedAt;

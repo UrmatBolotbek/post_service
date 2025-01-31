@@ -26,12 +26,29 @@ spring:
     redis:
       port: 6379
       host: localhost
+      time-to-live: 86400
       channels:
         comment-notification-channel: comment-topic
         ad-bought-channel: ad-bought-topic
         comment-channel: comment-topic
         ban-channel: user-ban
 
+  kafka:
+    consumer:
+      enable-auto-commit: false
+      group-id: post_feed
+    producer:
+      acks: 1
+      retries: 3
+    listener:
+      ack-mode: manual
+    bootstrap-servers: "localhost:9093"
+    topic-name:
+      author-cached: "author-cached"
+      post-cached: "post-cached"
+    topics:
+      partitions: 1
+      replicas: 1
 
 server:
   port: 8081

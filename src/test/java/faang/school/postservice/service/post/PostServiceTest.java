@@ -5,6 +5,7 @@ import faang.school.postservice.dto.post.PostFilterDto;
 import faang.school.postservice.dto.post.PostRequestDto;
 import faang.school.postservice.dto.post.PostResponseDto;
 import faang.school.postservice.dto.post.PostUpdateDto;
+import faang.school.postservice.kafka.EventsManager;
 import faang.school.postservice.mapper.post.PostMapper;
 import faang.school.postservice.model.Like;
 import faang.school.postservice.model.Post;
@@ -13,16 +14,15 @@ import faang.school.postservice.service.post.filter.PostFilters;
 import faang.school.postservice.service.resource.ResourceService;
 import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.post.PostValidator;
-
-import org.junit.jupiter.api.BeforeEach;
 import faang.school.postservice.validator.resource.ResourceValidator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpEntity;
 import org.springframework.web.client.RestTemplate;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
@@ -30,22 +30,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class PostServiceTest {
+
     @Mock
     private PostRepository postRepository;
     @Mock
@@ -54,7 +50,8 @@ public class PostServiceTest {
     private PostValidator postValidator;
     @Mock
     private RestTemplate restTemplate;
-
+    @Mock
+    private ExecutorService spellingExecutor;
     @Mock
     private SpellingConfig api;
     @Mock
@@ -65,21 +62,23 @@ public class PostServiceTest {
     private List<PostFilters> postFilters;
     @Mock
     private ModerationDictionary moderationDictionary;
+    @Mock
+    private EventsManager eventsManager;
     @InjectMocks
     private PostService postService;
 
     private Post post;
-    private PostRequestDto postDto;
-    private PostResponseDto postResponseDto;
-    private List<Post> preparedPosts;
 
     @BeforeEach
     void setUp() {
-        postDto = new PostRequestDto();
+        lenient().doAnswer(invocation -> {
+            Runnable r = invocation.getArgument(0);
+            r.run();
+            return null;
+        }).when(spellingExecutor).execute(any(Runnable.class));
 
-        // 1 опубликован 3 (1 из них удалён) не опубликовано
-        // 1 удалён 3 не удалено
-        preparedPosts = new ArrayList<>();
+        PostRequestDto postDto = new PostRequestDto();
+        List<Post> preparedPosts = new ArrayList<>();
 
         post = new Post();
         post.setId(1L);
@@ -114,7 +113,8 @@ public class PostServiceTest {
         post4.setDeleted(true);
         post4.setCreatedAt(LocalDateTime.now().plusDays(4));
         preparedPosts.add(post4);
-        postResponseDto = new PostResponseDto();
+
+        PostResponseDto postResponseDto = new PostResponseDto();
         postResponseDto.setId(1L);
         postResponseDto.setAuthorId(1L);
     }
@@ -125,18 +125,22 @@ public class PostServiceTest {
                 "[\"error\",\"Rorer\",\"eerier\",\"arrear\",\"rower\",\"Euro\",\"rehear\",\"err\",\"ROR\",\"Orr\"]" +
                 ",\"position\":8,\"word\":\"errror\"}]}],\"spellingErrorCount\":1}";
         List<Post> posts = List.of(post);
+
         when(postRepository.findByPublishedFalse()).thenReturn(posts);
         when(api.getKey()).thenReturn("key");
         when(api.getEndpoint()).thenReturn("endpoint");
-        when(restTemplate.postForObject(any(String.class), any(HttpEntity.class), eq(String.class))).thenReturn(prepareDate);
+        when(restTemplate.postForObject(any(String.class), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(prepareDate);
 
         postService.checkSpelling();
 
         verify(postRepository, times(1)).findByPublishedFalse();
         verify(api, times(1)).getKey();
         verify(api, times(1)).getEndpoint();
-        verify(postRepository, times(1)).save(post);
+        verify(postRepository, times(1)).save(any(Post.class));
+
         Thread.sleep(200);
+
         assertEquals("This is error", posts.get(0).getContent());
     }
 
@@ -201,13 +205,11 @@ public class PostServiceTest {
         when(postRepository.save(post)).thenReturn(updatedPost);
         when(postMapper.toDto(updatedPost)).thenReturn(postDto);
 
-
         PostResponseDto result = postService.publishPost(postId);
 
         verify(postValidator).validatePublish(post);
         verify(postRepository).save(post);
         verify(postMapper).toDto(updatedPost);
-
         assertEquals(result.getId(), postId);
     }
 
@@ -264,9 +266,6 @@ public class PostServiceTest {
         updatedPost.setPublished(false);
         updatedPost.setDeleted(true);
 
-        PostResponseDto postDto = new PostResponseDto();
-        postDto.setId(postId);
-
         when(postRepository.findById(postId)).thenReturn(Optional.of(post));
         when(postRepository.save(post)).thenReturn(updatedPost);
 
@@ -275,7 +274,6 @@ public class PostServiceTest {
         verify(postValidator).validateDelete(post);
         verify(postRepository).findById(postId);
         verify(postRepository).save(post);
-
         assertTrue(updatedPost.isDeleted());
     }
 
@@ -295,7 +293,6 @@ public class PostServiceTest {
 
         verify(postRepository).findById(postId);
         verify(postMapper).toDto(post);
-
         assertEquals(postId, result.getId());
     }
 
@@ -331,8 +328,8 @@ public class PostServiceTest {
         post1.setId(1L);
         post1.setContent("Test1");
         Post post2 = new Post();
-        post1.setId(2L);
-        post1.setContent("Test2");
+        post2.setId(2L);
+        post2.setContent("Test2");
         List<Post> batch = Arrays.asList(post1, post2);
 
         when(moderationDictionary.isVerified(post1.getContent())).thenReturn(true);
@@ -340,12 +337,11 @@ public class PostServiceTest {
 
         postService.verifyPostsForModeration(batch);
 
-        assertEquals(LocalDateTime.now().getMinute(), post1.getVerifiedDate().getMinute(), "Verified date should be set");
-        assertTrue(post1.getVerified(), "Post 1 should be verified");
-        assertEquals(LocalDateTime.now().getMinute(), post2.getVerifiedDate().getMinute(), "Verified date should be set");
-        assertFalse(post2.getVerified(), "Post 2 should not be verified");
+        assertEquals(LocalDateTime.now().getMinute(), post1.getVerifiedDate().getMinute());
+        assertTrue(post1.getVerified());
+        assertEquals(LocalDateTime.now().getMinute(), post2.getVerifiedDate().getMinute());
+        assertFalse(post2.getVerified());
 
         verify(postRepository, times(2)).save(any(Post.class));
     }
-
 }

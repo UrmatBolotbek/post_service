@@ -4,8 +4,7 @@ import faang.school.postservice.client.ProjectServiceClient;
 import faang.school.postservice.client.UserServiceClient;
 import faang.school.postservice.dto.post.PostRequestDto;
 
-import java.util.Optional;
-import faang.school.postservice.excaption.post.PostException;
+import faang.school.postservice.exception.PostException;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.PostRepository;
 import org.junit.jupiter.api.BeforeEach;

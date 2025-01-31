@@ -6,6 +6,7 @@ import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
 import faang.school.postservice.dto.events_dto.CommentEventDto;
 import faang.school.postservice.dto.user.UserDto;
 import faang.school.postservice.dto.user.UserForBanEventDto;
+import faang.school.postservice.kafka.EventsManager;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Post;
@@ -29,7 +30,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -57,6 +57,9 @@ class CommentServiceTest {
 
     @Mock
     private UserBanEventPublisher banPublisher;
+
+    @Mock
+    private EventsManager eventsManager;
 
     @InjectMocks
     private CommentService commentService;

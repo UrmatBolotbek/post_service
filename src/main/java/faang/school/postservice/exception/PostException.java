@@ -1,4 +1,4 @@
-package faang.school.postservice.excaption.post;
+package faang.school.postservice.exception;
 
 public class PostException extends RuntimeException {
     public PostException(String message, Object... args) {
