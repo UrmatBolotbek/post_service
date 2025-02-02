@@ -1,13 +1,19 @@
 package faang.school.postservice.service.comment;
 
+import faang.school.postservice.annotations.publisher.PublishEvent;
+import faang.school.postservice.client.UserServiceClient;
+import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.comment.CommentRequestDto;
 import faang.school.postservice.dto.comment.CommentResponseDto;
 import faang.school.postservice.dto.comment.CommentUpdateRequestDto;
 import faang.school.postservice.dto.events_dto.CommentEventDto;
+import faang.school.postservice.dto.user.UserDto;
 import faang.school.postservice.dto.user.UserForBanEventDto;
-import faang.school.postservice.kafka.EventsManager;
 import faang.school.postservice.mapper.comment.CommentMapper;
 import faang.school.postservice.model.Comment;
+import faang.school.postservice.news_feed.dto.serializable.CommentCache;
+import faang.school.postservice.news_feed.repository.CommentCacheRepository;
+import faang.school.postservice.news_feed.repository.UserCacheRepository;
 import faang.school.postservice.publisher.CommentEventPublisher;
 import faang.school.postservice.publisher.UserBanEventPublisher;
 import faang.school.postservice.repository.CommentRepository;
@@ -25,6 +31,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import static faang.school.postservice.news_feed.enums.PublisherType.POST_COMMENT;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -37,8 +45,13 @@ public class CommentService {
     private final UserBanEventPublisher banPublisher;
     private final PostRepository postRepository;
     private final ModerationDictionary moderationDictionary;
-    private final EventsManager eventsManager;
+    private final UserServiceClient userServiceClient;
+    private final UserCacheRepository userCacheRepository;
+    private final CommentCacheRepository commentCacheRepository;
+    private final UserContext userContext;
 
+    @PublishEvent(type = POST_COMMENT)
+    @Transactional
     public CommentResponseDto createComment(CommentRequestDto commentRequestDto) {
         commentValidator.validateAuthorExists(commentRequestDto.getAuthorId());
         commentValidator.validatePostExists(commentRequestDto.getPostId());
@@ -58,7 +71,10 @@ public class CommentService {
         commentEventPublisher.publish(commentEventDto);
         log.info("Notification about new comment sent to notification service {}", commentEventDto);
 
-        eventsManager.generateAndSendAuthorCachedEvent(commentResponseDto.getAuthorId());
+        UserDto userDto = userServiceClient.getUser(userContext.getUserId());
+        userCacheRepository.save(userDto);
+        CommentCache commentCache = commentMapper.toCommentCache(comment);
+        commentCacheRepository.save(commentCache);
 
         return commentResponseDto;
     }
@@ -74,6 +90,7 @@ public class CommentService {
         return commentEventDto;
     }
 
+    @Transactional
     public CommentResponseDto updateComment(CommentUpdateRequestDto commentUpdateRequestDto) {
         Comment commentToUpdate = commentRepository.getCommentById(commentUpdateRequestDto.getCommentId());
 
@@ -82,6 +99,10 @@ public class CommentService {
 
         commentRepository.save(commentToUpdate);
         log.info("Comment with id: {} updated", commentUpdateRequestDto.getCommentId());
+
+        CommentCache commentCache = commentMapper.toCommentCache(commentToUpdate);
+        commentCacheRepository.save(commentCache);
+
         return commentMapper.toDto(commentToUpdate);
     }
 
@@ -97,6 +118,7 @@ public class CommentService {
 
     public void deleteComment(Long commentId) {
         commentRepository.deleteById(commentId);
+        commentCacheRepository.deleteById(commentId);
         log.info("Comment with id: {} deleted", commentId);
     }
 

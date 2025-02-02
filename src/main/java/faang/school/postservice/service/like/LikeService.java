@@ -1,5 +1,6 @@
 package faang.school.postservice.service.like;
 
+import faang.school.postservice.annotations.publisher.PublishEvent;
 import faang.school.postservice.client.UserServiceClient;
 import faang.school.postservice.dto.like.LikeRequestDto;
 import faang.school.postservice.dto.like.LikeResponseDto;
@@ -17,12 +18,16 @@ import faang.school.postservice.validator.like.LikeValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import static faang.school.postservice.news_feed.enums.PublisherType.COMMENT_LIKE;
+import static faang.school.postservice.news_feed.enums.PublisherType.POST_LIKE;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +44,8 @@ public class LikeService {
 
     private static final int BATCH_SIZE = 100;
 
+    @PublishEvent(type = POST_LIKE)
+    @Transactional
     public LikeResponseDto postLike(LikeRequestDto acceptanceLikeDto, long postId) {
         Long userId = acceptanceLikeDto.getUserId();
         validator.validateUserId(userId);
@@ -73,6 +80,8 @@ public class LikeService {
 
     }
 
+    @PublishEvent(type = COMMENT_LIKE)
+    @Transactional
     public LikeResponseDto commentLike(LikeRequestDto acceptanceLikeDto, long commentId) {
         Long userId = acceptanceLikeDto.getUserId();
         validator.validateUserId(userId);

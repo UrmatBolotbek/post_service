@@ -1,21 +1,30 @@
 package faang.school.postservice.service.post;
 
+import faang.school.postservice.annotations.publisher.PublishEvent;
+import faang.school.postservice.client.UserServiceClient;
+import faang.school.postservice.config.context.UserContext;
 import faang.school.postservice.dto.post.PostFilterDto;
 import faang.school.postservice.config.api.SpellingConfig;
 import faang.school.postservice.dto.post.PostRequestDto;
 import faang.school.postservice.dto.post.PostResponseDto;
 import faang.school.postservice.dto.post.PostUpdateDto;
 import faang.school.postservice.dto.resource.ResourceResponseDto;
-import faang.school.postservice.kafka.EventsManager;
+import faang.school.postservice.dto.user.UserDto;
 import faang.school.postservice.mapper.post.PostMapper;
 import faang.school.postservice.mapper.resource.ResourceMapper;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.model.Resource;
+import faang.school.postservice.news_feed.dto.serializable.PostCache;
+import faang.school.postservice.news_feed.repository.PostCacheRepository;
+import faang.school.postservice.news_feed.repository.UserCacheRepository;
 import faang.school.postservice.repository.PostRepository;
+import faang.school.postservice.service.post.cache.PostCacheProcessExecutor;
+import faang.school.postservice.service.post.cache.PostCacheService;
 import faang.school.postservice.service.post.filter.PostFilters;
+import faang.school.postservice.service.post.hashtag.PostHashTagParser;
+import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.service.resource.ResourceService;
 import faang.school.postservice.service.s3.S3Service;
-import faang.school.postservice.util.ModerationDictionary;
 import faang.school.postservice.validator.post.PostValidator;
 import faang.school.postservice.validator.resource.ResourceValidator;
 import jakarta.persistence.EntityNotFoundException;
@@ -34,20 +43,25 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import static faang.school.postservice.news_feed.enums.PublisherType.NEW_POST;
+import static faang.school.postservice.news_feed.enums.PublisherType.POST_VIEW;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PostService {
 
-    private final ExecutorService spellingExecutor;
+    ExecutorService execute = Executors.newFixedThreadPool(10);
+
     private final ResourceService resourceService;
     private final S3Service s3Service;
     private final PostRepository postRepository;
@@ -59,47 +73,72 @@ public class PostService {
     private final PostValidator postValidator;
     private final List<PostFilters> postFilters;
     private final ModerationDictionary moderationDictionary;
-    private final EventsManager eventsManager;
+    private final UserContext userContext;
+    private final UserServiceClient userServiceClient;
+    private final PostHashTagParser postHashTagParser;
+    private final PostCacheService postCacheService;
+    private final PostCacheRepository postCacheRepository;
+    private final UserCacheRepository userCacheRepository;
+    private final PostCacheProcessExecutor postCacheProcessExecutor;
 
     @Transactional
     public PostResponseDto create(PostRequestDto requestDto, List<MultipartFile> images, List<MultipartFile> audio) {
         postValidator.validateCreate(requestDto);
         Post post = postMapper.toEntity(requestDto);
+
         post.setPublished(false);
         post.setDeleted(false);
         post.setLikes(new ArrayList<>());
         post.setComments(new ArrayList<>());
         post.setResources(new ArrayList<>());
         post.setHashtags(new ArrayList<>());
+
         post = postRepository.save(post);
+
         uploadResourcesToPost(images, "image", post);
         uploadResourcesToPost(audio, "audio", post);
-        post = postRepository.save(post);
+
         log.info("Post with id {} created", post.getId());
+        post = postRepository.save(post);
+
         PostResponseDto responseDto = postMapper.toDto(post);
         populateResourceUrls(responseDto, post);
         return responseDto;
     }
 
-    @Transactional
     public PostResponseDto updatePost(Long postId, PostUpdateDto updateDto, List<MultipartFile> images, List<MultipartFile> audio) {
         Post post = postRepository.getPostById(postId);
+
         if (updateDto.getContent() != null) {
             post.setContent(updateDto.getContent());
         }
+
         deleteResourcesFromPost(updateDto.getImageFilesIdsToDelete());
         deleteResourcesFromPost(updateDto.getAudioFilesIdsToDelete());
+
         uploadResourcesToPost(images, "image", post);
         uploadResourcesToPost(audio, "audio", post);
+
         resourceValidator.validateResourceCounts(post);
+
         post.setUpdatedAt(LocalDateTime.now());
         post = postRepository.save(post);
         log.info("Post with id {} updated", postId);
+
         PostResponseDto responseDto = postMapper.toDto(post);
         populateResourceUrls(responseDto, post);
+
+        List<String> primalTags = new ArrayList<>(post.getHashtags());
+        if (!post.isDeleted() && post.isPublished()) {
+            PostCache postCacheDto = postMapper.toPostCache(post);
+            postCacheProcessExecutor.executeUpdatePostProcess(postCacheDto, primalTags);
+            postCacheRepository.save(postCacheDto);
+        }
+
         return responseDto;
     }
 
+    @PublishEvent(type = POST_VIEW)
     @Transactional(readOnly = true)
     public PostResponseDto getPost(Long postId) {
         Post post = postRepository.getPostById(postId);
@@ -108,70 +147,8 @@ public class PostService {
         return responseDto;
     }
 
-    @Transactional
-    public PostResponseDto publishPost(Long id) {
-        Post post = postValidator.validateAndGetPostById(id);
-        postValidator.validatePublish(post);
-        post.setPublished(true);
-        post.setDeleted(false);
-        post = postRepository.save(post);
-        PostResponseDto postDto = postMapper.toDto(post);
-
-        eventsManager.generateAndSendAuthorCachedEvent(postDto.getAuthorId());
-        eventsManager.generateAndSendPostCachedEvent(postDto);
-
-        return postDto;
-    }
-
-    @Transactional
-    public void deletePost(Long id) {
-        Post post = postRepository.findById(id).orElseThrow(EntityNotFoundException::new);
-        postValidator.validateDelete(post);
-        post.setPublished(false);
-        post.setDeleted(true);
-        postRepository.save(post);
-    }
-
-    @Transactional(readOnly = true)
-    public PostResponseDto getPostById(Long id) {
-        return postRepository.findById(id)
-                .map(postMapper::toDto)
-                .orElseThrow(EntityNotFoundException::new);
-    }
-
-    @Transactional
-    public void checkSpelling() {
-        List<Post> posts = postRepository.findByPublishedFalse();
-        int sizeOfRequests = getSizeOfRequest(posts.size());
-        for (int i = 0; i < posts.size(); i += sizeOfRequests) {
-            List<Post> sublist = posts.subList(i, Math.min(i + sizeOfRequests, posts.size()));
-            checkingPostsForSpelling(sublist);
-        }
-    }
-
-    @Transactional(readOnly = true)
-    public List<PostResponseDto> getPosts(PostFilterDto filterDto) {
-        Stream<Post> postsStream = StreamSupport.stream(postRepository.findAll().spliterator(), false);
-        postFilters.stream()
-                .filter(filter -> filter.isApplicable(filterDto))
-                .forEach(filter -> filter.apply(postsStream, filterDto));
-        return postMapper.toListPostDto(postsStream.toList());
-    }
-
-    @Async("moderationPool")
-    @Transactional
-    public void verifyPostsForModeration(List<Post> posts) {
-        posts.forEach(post -> {
-            post.setVerifiedDate(LocalDateTime.now());
-            boolean isVerified = moderationDictionary.isVerified(post.getContent());
-            post.setVerified(isVerified);
-            log.info("Post with id {} has been verified and has status {}", post.getId(), isVerified);
-            postRepository.save(post);
-        });
-    }
-
     private void uploadResourcesToPost(List<MultipartFile> files, String resourceType, Post post) {
-        if (files != null && !files.isEmpty()) {
+        if (files != null) {
             log.info("Uploading {} {} resources for post ID {}", files.size(), resourceType, post.getId());
             List<Resource> resources = resourceService.uploadResources(files, resourceType, post);
             post.getResources().addAll(resources);
@@ -184,10 +161,12 @@ public class PostService {
                 .filter(resource -> "image".equals(resource.getType()))
                 .map(this::mapResourceToDto)
                 .toList();
+
         List<ResourceResponseDto> audioResources = post.getResources().stream()
                 .filter(resource -> "audio".equals(resource.getType()))
                 .map(this::mapResourceToDto)
                 .toList();
+
         responseDto.setImages(imageResources);
         responseDto.setAudio(audioResources);
     }
@@ -199,10 +178,61 @@ public class PostService {
     }
 
     private void deleteResourcesFromPost(List<Long> resourceIds) {
-        if (resourceIds != null && !resourceIds.isEmpty()) {
+        if (resourceIds != null) {
             log.info("Deleting {} resources", resourceIds.size());
             resourceService.deleteResources(resourceIds);
             log.info("{} resources deleted successfully", resourceIds.size());
+        }
+    }
+
+    @PublishEvent(type = NEW_POST)
+    public PostResponseDto publishPost(Long id) {
+        Post post = postValidator.validateAndGetPostById(id);
+        postValidator.validatePublish(post);
+        post.setPublished(true);
+        post.setDeleted(false);
+        postHashTagParser.updateHashTags(post);
+        postRepository.save(post);
+
+        PostCache postCacheDto = postMapper.toPostCache(post);
+        postCacheProcessExecutor.executeNewPostProcess(postCacheDto);
+
+        if (post.getAuthorId() != null) {
+            UserDto postAuthorDto = userServiceClient.getUser(post.getAuthorId());
+            postCacheDto.setAuthorDto(postAuthorDto);
+
+            postCacheRepository.save(postCacheDto);
+            userCacheRepository.save(postAuthorDto);
+        }
+
+        return postMapper.toDto(post);
+    }
+
+    @Transactional
+    public void deletePost(Long id) {
+        Post post = postRepository
+                .findById(id)
+                .orElseThrow(EntityNotFoundException::new);
+        postValidator.validateDelete(post);
+
+        post.setPublished(false);
+        post.setDeleted(true);
+        postCacheRepository.deleteById(id);
+        postRepository.save(post);
+    }
+
+    public PostResponseDto getPostById(Long id) {
+        return postRepository.findById(id)
+                .map(postMapper::toDto)
+                .orElseThrow(EntityNotFoundException::new);
+    }
+
+    public void checkSpelling() {
+        List<Post> posts = postRepository.findByPublishedFalse();
+        int sizeOfRequests = getSizeOfRequest(posts.size());
+        for (int i = 0; i < posts.size(); i += sizeOfRequests) {
+            List<Post> sublist = posts.subList(i, Math.min(i + sizeOfRequests, posts.size()));
+            checkingPostsForSpelling(sublist);
         }
     }
 
@@ -225,16 +255,15 @@ public class PostService {
             for (int i = 0; i < posts.size(); i++) {
                 Post post = posts.get(i);
                 int finalI = i;
-                spellingExecutor.execute(() -> setCorrectContent(jsonObject, post, finalI));
+                execute.execute(() -> setCorrectContent(jsonObject, post, finalI));
             }
-            spellingExecutor.shutdown();
-            if (!spellingExecutor.awaitTermination(2, TimeUnit.MINUTES)) {
-                spellingExecutor.shutdownNow();
+            execute.shutdown();
+            if (!execute.awaitTermination(2, TimeUnit.MINUTES)) {
+                execute.shutdownNow();
             }
         } catch (InterruptedException e) {
             log.error("An interrupt error occurred in the method of checking the spelling ", e);
-            spellingExecutor.shutdownNow();
-            Thread.currentThread().interrupt();
+            execute.shutdownNow();
             throw new RuntimeException(e);
         } catch (HttpClientErrorException e) {
             log.error("An error occurred while executing a request to an external server ", e);
@@ -265,16 +294,17 @@ public class PostService {
         return json.toString();
     }
 
-    private void setCorrectContent(JSONObject jsonObject, Post post, int index) {
+    private void setCorrectContent(JSONObject jsonObject, Post post, int id) {
         try {
             String content = post.getContent();
             JSONArray elementsArray = jsonObject.getJSONArray("elements");
-            JSONObject firstElement = elementsArray.getJSONObject(index);
+            JSONObject firstElement = elementsArray.getJSONObject(id);
             JSONArray errorsArray = firstElement.getJSONArray("errors");
-            if (errorsArray.isEmpty()) {
+            int size = errorsArray.length();
+            if (size == 0) {
                 return;
             }
-            for (int i = 0; i < errorsArray.length(); i++) {
+            for (int i = 0; i < size; i++) {
                 JSONObject error = errorsArray.getJSONObject(i);
                 String word = error.getString("word");
                 JSONArray suggestionsArray = error.getJSONArray("suggestions");
@@ -294,12 +324,50 @@ public class PostService {
             return 10;
         } else if (sizeOfPosts <= 500) {
             return 50;
-        } else {
-            return 100;
-        }
+        } else return 100;
     }
 
     private static String escapeJson(String data) {
-        return data.replace("\\", "\\\\").replace("\"", "\\\"");
+        return data.replace("\\", "\\\\")
+                .replace("\"", "\\\"");
+    }
+
+    public List<PostResponseDto> getPosts(PostFilterDto filterDto) {
+        Stream<Post> posts = StreamSupport.stream(postRepository.findAll().spliterator(), false);
+
+        postFilters.stream()
+                .filter(filter -> filter.isApplicable(filterDto))
+                .forEach(filter -> filter.apply(posts, filterDto));
+
+        return postMapper.toListPostDto(posts.toList());
+    }
+
+    @Async("moderationPool")
+    public void verifyPostsForModeration(List<Post> posts) {
+        posts.forEach(post -> {
+            post.setVerifiedDate(LocalDateTime.now());
+            boolean isVerified = moderationDictionary.isVerified(post.getContent());
+            post.setVerified(isVerified);
+            log.info("Post with id {} has been verified and has status {}", post.getId(), isVerified);
+            postRepository.save(post);
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public List<PostCache> getSetOfPosts(long userId, long offset, long limit) {
+        userContext.setUserId(userId);
+
+        List<Long> subscribesIds = userServiceClient.getSubscribesIds(userId);
+        List<Post> posts = postRepository.findSetOfPostsByAuthorsIds(offset, limit, subscribesIds);
+
+        return posts.stream()
+                .map(postMapper::toPostCache)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PostCache findPostCacheById(long id) {
+        Post post = postRepository.findById(id).orElseThrow();
+        return postMapper.toPostCache(post);
     }
 }

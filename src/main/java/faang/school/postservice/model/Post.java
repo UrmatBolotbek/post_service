@@ -7,7 +7,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -62,8 +64,9 @@ public class Post {
     @Column(name = "deleted", nullable = false)
     private boolean deleted;
 
-    @ManyToMany(mappedBy = "posts")
-    private List<Hashtag> hashtags;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "hash_tags")
+    private List<String> hashtags;
 
     @CreationTimestamp
     @Temporal(TemporalType.TIMESTAMP)
@@ -81,4 +84,8 @@ public class Post {
     @Column(name = "verified_date")
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime verifiedDate;
+
+    @Builder.Default
+    @Column(name = "view")
+    private Long views = 0L;
 }
