@@ -26,30 +26,44 @@ spring:
     redis:
       port: 6379
       host: localhost
-      time-to-live: 86400
-      max-comments: 3
       channels:
         comment-notification-channel: comment-topic
         ad-bought-channel: ad-bought-topic
         comment-channel: comment-topic
         ban-channel: user-ban
+      ttl:
+        feed:
+          post_hour: 24
+          user_hour: 24
+          comment_hour: 24
+          user_feed_hour: 24
+          post_views_counter_sec: 90
+          post_likes_counter_sec: 90
+          post_comments_counter_sec: 90
+          comment_likes_counter_sec: 90
+      retry:
+        opt_lock_max_attempt: 5
 
   kafka:
+    bootstrap-servers: localhost:9092
     consumer:
-      enable-auto-commit: false
       group-id: post_feed
-    producer:
-      acks: 1
-      retries: 3
-    listener:
-      ack-mode: manual
-    bootstrap-servers: "localhost:9093"
-    topic-name:
-      author-cached: "author-cached"
-      post-cached: "post-cached"
-    topics:
-      partitions: 1
-      replicas: 1
+    template:
+      default-topic: feed
+    topic:
+      post:
+        new: posts
+        update_feeds: posts_update_feeds
+        view: post_views
+        update_views: post_views_update
+        like: likes
+        update_likes: post_likes_update
+        comment: comments
+        update_comments: post_comments_update
+        like_post_comment: like_comment
+        update_post_comments_likes: post_comment_likes_update
+      user:
+        feed_update: feed_update
 
 server:
   port: 8081
@@ -88,3 +102,55 @@ project-service:
 payment-service:
   host: localhost
   port: 9080
+
+app:
+  post:
+    feed:
+      update:
+        followers_partitions_limit: 10
+        view_counter_partition_limit: 10
+        like_counter_partition_limit: 10
+        comment_counter_partition_limit: 10
+        post_comment_likes_partition_limit: 10
+        users_feed_update_partition_limit: 5
+      scheduler:
+        cron:
+          post_view_counter_collector: "0 0/1 * 1/1 * ?" # every minute
+          post_like_counter_collector: "0 0/1 * 1/1 * ?" # every minute
+          post_comment_counter_collector: "0 0/1 * 1/1 * ?" # every minute
+          post_comment_like_counter_collector: "0 0/1 * 1/1 * ?" # every minute
+    cache:
+      hash_tag:
+        prefix:
+          post_id: "hash_tag/post_id:"
+        number_of_top_in_cache: 10
+      news_feed:
+        prefix:
+          post_id: "post_id:"
+          user_id: "user_id:"
+          comment_id: "comment_id:"
+          feed_prefix: "feed/"
+          post_comments_ids_set: "comment/"
+        postfix:
+          views: "/views"
+          likes: "/likes"
+          comments: "/comments"
+        user_feed_size: 10
+        user_feed_size_zset_index: -11  # limit is 10 = (10 + 1) * -1
+        number_of_comments_limit: 3
+        max_index_for_get_comments_in_post_comments_set: 2
+        number_of_comment_ids_in_post_comments_set: -11  # limit is 10 = (10 + 1) * -1
+  async-config:
+    post-cache-service:
+      core_pool_size: 10
+      max_pool_size: 20
+      queue_capacity: 1000
+      thread_mane_prefix: PostCacheProcessExecutor-Async-
+    users_feed_update:
+      core_pool_size: 10
+      max_pool_size: 20
+      queue_capacity: 1000
+      thread_mane_prefix: UsersFeedUpdateExecutor-Async-
+    redis-publisher-async-pool:
+      core_pool_size: 10
+      max_pool_size: 10

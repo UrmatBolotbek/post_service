@@ -4,6 +4,7 @@ import faang.school.postservice.dto.comment.CommentRequestDto;
 import faang.school.postservice.dto.comment.CommentResponseDto;
 import faang.school.postservice.model.Comment;
 import faang.school.postservice.model.Like;
+import faang.school.postservice.news_feed.dto.serializable.CommentCache;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -27,6 +28,10 @@ public interface CommentMapper {
     @Mapping(source = "postId", target = "post.id")
     List<Comment> toEntity(List<CommentResponseDto> commentDtos);
 
+    @Mapping(source = "likes", target = "likesCount", qualifiedByName = "mapLikes")
+    @Mapping(source = "post.id", target = "postId")
+    CommentCache toCommentCache(Comment comment);
+
     @Named("mapLikesToLikeIds")
     default List<Long> mapLikesToLikeIds(List<Like> likes) {
         if (likes == null) {
@@ -35,5 +40,11 @@ public interface CommentMapper {
         return likes.stream()
                 .map(Like::getId)
                 .toList();
+    }
+
+    @Named("mapLikes")
+    default Long mapLikes(List<Like> likes) {
+        if (likes == null) return 0L;
+        return (long) likes.size();
     }
 }

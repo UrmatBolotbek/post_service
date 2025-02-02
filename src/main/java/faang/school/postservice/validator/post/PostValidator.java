@@ -4,7 +4,6 @@ import faang.school.postservice.client.ProjectServiceClient;
 import faang.school.postservice.client.UserServiceClient;
 import faang.school.postservice.dto.post.PostRequestDto;
 import faang.school.postservice.exception.PostException;
-import faang.school.postservice.model.Hashtag;
 import faang.school.postservice.model.Post;
 import faang.school.postservice.repository.PostRepository;
 import jakarta.persistence.EntityExistsException;
@@ -60,13 +59,4 @@ public class PostValidator {
             throw new PostException("Post already deleted");
         }
     }
-
-    public void validatePostHatThisHashtag(Post post, Hashtag hashtag) {
-        if (post.getHashtags().contains(hashtag)) {
-            log.warn("Hashtag with title {} by postId {} is already in use", hashtag.getTitle(), post.getId());
-            throw new PostException("Hashtag with title "
-                    + hashtag.getTitle() + " by postId " + post.getId() + " already exists");
-        }
-    }
-
 }

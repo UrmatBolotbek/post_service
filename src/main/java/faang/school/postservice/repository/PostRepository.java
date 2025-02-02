@@ -4,6 +4,7 @@ import faang.school.postservice.model.Post;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -33,4 +34,14 @@ public interface PostRepository extends CrudRepository<Post, Long> {
 
     List<Post> findByVerifiedIsNull();
 
+    @Query(nativeQuery = true, value = """
+            SELECT *
+            FROM post
+            WHERE author_id IN (:authorsId)
+            ORDER BY created_at DESC
+            OFFSET :offset
+            LIMIT :limit
+            """)
+    List<Post> findSetOfPostsByAuthorsIds(@Param("offset") long offset, @Param("limit") long limit,
+                                          @Param("authorsId") List<Long> authorsId);
 }
