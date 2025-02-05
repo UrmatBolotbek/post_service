@@ -1,107 +1,58 @@
-# Service Template
+# Post Service
 
-Стандартный шаблон проекта на SpringBoot
+**Post Service** is a core microservice in our social network platform that manages user posts and powers the dynamic News Feed feature. It enables users to create, manage, and share content—keeping their followers up-to-date with real-time updates and interactions. This service is a key component in our ecosystem, working alongside other microservices such as user_service, project_service, and notification_service to deliver a seamless social experience.
 
-# Использованные технологии
+---
 
-* [Spring Boot](https://spring.io/projects/spring-boot) – как основной фрэймворк
-* [PostgreSQL](https://www.postgresql.org/) – как основная реляционная база данных
-* [Redis](https://redis.io/) – как кэш и очередь сообщений через pub/sub
-* [testcontainers](https://testcontainers.com/) – для изолированного тестирования с базой данных
-* [Liquibase](https://www.liquibase.org/) – для ведения миграций схемы БД
-* [Gradle](https://gradle.org/) – как система сборки приложения
+## Overview
 
-# База данных
+- **Content Management:**  
+  The service manages posts created by users. Each post contains rich text content, author and project associations, publication flags and timestamps, as well as metadata such as hashtags, likes, comments, and views.
 
-* База поднимается в отдельном сервисе [infra](../infra)
-* Redis поднимается в единственном инстансе тоже в [infra](../infra)
-* Liquibase сам накатывает нужные миграции на голый PostgreSql при старте приложения
-* В тестах используется [testcontainers](https://testcontainers.com/), в котором тоже запускается отдельный инстанс
-  postgres
-* В коде продемонстрирована работа как с JdbcTemplate, так и с JPA (Hibernate)
+- **News Feed Feature:**  
+  The News Feed is a central feature that aggregates posts from the users a person follows, displaying them in reverse chronological order. To deliver a responsive experience:
+  - **Caching with Redis:**  
+    Posts (or their IDs) are cached in Redis to serve the feed quickly without overloading the primary database. A dedicated Redis collection holds the list of post IDs for each user's feed, while a separate cache stores the detailed JSON representation of each post.
+  - **Asynchronous Updates:**  
+    When a new post is created, it is saved in the database and then asynchronously published to Kafka. A consumer process then updates the feed cache for all followers of the post's author. This decouples the heavy work of fan-out from the critical path of post creation.
+  - **Scalability Considerations:**  
+    The design takes into account the high frequency of feed retrievals and aims to minimize duplicate data storage while ensuring that the feed remains responsive even under high load.
 
-# Как начать разработку начиная с шаблона?
+- **Additional Interactions:**  
+  Beyond basic post management, the service handles interactions like likes, comments, and the integration of advertisements (ads) associated with posts. These interactions are also reflected in the feed, with separate asynchronous updates and caching strategies for performance and scalability.
 
-1. Сначала нужно склонировать этот репозиторий
+---
 
-```shell
-git clone https://github.com/FAANG-School/ServiceTemplate
-```
+## Data Model
 
-2. Далее удаляем служебную директорию для git
+The core `Post` entity includes:
+- **Content:** A textual field (up to 4096 characters) containing the post content.
+- **Associations:** References to the author, associated project, and related entities such as comments, likes, and resources.
+- **Publication Flags:** Indicators for whether a post is published or deleted, along with publication and scheduling timestamps.
+- **Metadata:** A list of hashtags (stored as JSON), view counts, and verification status with timestamps.
 
-```shell
-# Переходим в корневую директорию проекта
-cd ServiceTemplate
-rm -rf .git
-```
+---
 
-3. Далее нужно создать совершенно пустой репозиторий в github/gitlab
+### Technologies Used
 
-4. Создаём новый репозиторий локально и коммитим изменения
+- [Spring Boot](https://spring.io/projects/spring-boot) – Main framework for building the application.
+- [PostgreSQL](https://www.postgresql.org/) – Primary relational database.
+- [Redis](https://redis.io/) – Used as a cache and for pub/sub messaging.
+- [Testcontainers](https://testcontainers.com/) – For isolated testing with a real database.
+- [Liquibase](https://www.liquibase.org/) – For managing database schema migrations.
+- [Gradle](https://gradle.org/) – Build system.
 
-```shell
-git init
-git remote add origin <link_to_repo>
-git add .
-git commit -m "<msg>"
-```
+### Database & Infrastructure
 
-Готово, можно начинать работу!
+- **Database:**  
+  PostgreSQL is managed in a separate service ([infra](../infra)). Liquibase automatically applies necessary migrations at startup.
+- **Redis:**  
+  Redis is deployed as a single instance in the [infra](../infra) service, and is used for caching posts, user data, and feed lists.
+- **Testing:**  
+  Integration tests use Testcontainers to spin up isolated instances of PostgreSQL and Redis. The code demonstrates data access via both JdbcTemplate and JPA (Hibernate).
 
-# Как запустить локально?
+---
 
-Сначала нужно развернуть базу данных из директории [infra](../infra)
+### Conclusion
 
-Далее собрать gradle проект
-
-```shell
-# Нужно запустить из корневой директории, где лежит build.gradle.kts
-gradle build
-```
-
-Запустить jar'ник
-
-```shell
-java -jar build/libs/ServiceTemplate-1.0.jar
-```
-
-Но легче всё это делать через IDE
-
-# Код
-
-RESTful приложения калькулятор с единственным endpoint'ом, который принимает 2 числа и выдает результаты их сложения,
-вычитаяни, умножения и деления
-
-* Обычная трёхслойная
-  архитектура – [Controller](src/main/java/faang/school/postservice/controller), [Service](src/main/java/faang/school/postservice/service), [Repository](src/main/java/faang/school/postservice/repository)
-* Слой Repository реализован и на jdbcTemplate, и на JPA (Hibernate)
-* Написан [GlobalExceptionHandler](src/main/java/faang/school/postservice/controller/GlobalExceptionHandler.java)
-  который умеет возвращать ошибки в формате `{"code":"CODE", "message": "message"}`
-* Используется TTL кэширование вычислений
-  в [CalculationTtlCacheService](src/main/java/faang/school/postservice/service/cache/CalculationTtlCacheService.java)
-* Реализован простой Messaging через [Redis pub/sub](https://redis.io/docs/manual/pubsub/)
-  * [Конфигурация](src/main/java/faang/school/postservice/config/RedisConfig.java) –
-    сетапится [RedisTemplate](https://docs.spring.io/spring-data/redis/docs/current/api/org/springframework/data/redis/core/RedisTemplate.html) –
-    класс, для удобной работы с Redis силами Spring
-  * [Отправитель](src/main/java/faang/school/postservice/service/messaging/RedisCalculationPublisher.java) – генерит
-    рандомные запросы и отправляет в очередь
-  * [Получатель](src/main/java/faang/school/postservice/service/messaging/RedisCalculationSubscriber.java) –
-    получает запросы и отправляет задачи асинхронно выполняться
-    в [воркер](src/main/java/faang/school/postservice/service/worker/CalculationWorker.java)
-
-# Тесты
-
-Написаны только для единственного REST endpoint'а
-* SpringBootTest
-* MockMvc
-* Testcontainers
-* AssertJ
-* JUnit5
-* Parameterized tests
-
-# TODO
-
-* Dockerfile, который подключается к сети запущенной postgres в docker-compose
-* Redis connectivity
-* ...
+Post Service is integral to our social network, powering the creation, management, and distribution of user content. With its robust News Feed implementation and efficient caching strategies, it ensures a responsive and scalable user experience.
