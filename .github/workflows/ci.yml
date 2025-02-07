@@ -3,7 +3,7 @@ name: Build project Griffon Stream-7
 on:
   pull_request:
     branches:
-      - Griffon-stream7-Urmat
+      - main
 
 jobs:
   build:
